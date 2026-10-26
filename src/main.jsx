@@ -6,6 +6,7 @@ import { Header, Footer } from './components/ui'
 import { Home, Browse } from './pages/HomeBrowse'
 import { Profile, Pricing, MyReveals } from './pages/ProfilePricing'
 import { Journey, Join } from './pages/JourneyJoin'
+import { FeedbackForm } from './pages/Feedback'
 import './index.css'
 
 const Legal = ({ title, children }) => (
@@ -28,6 +29,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/browse" element={<Browse />} />
               <Route path="/helper/:id" element={<Profile />} />
+              <Route path="/feedback/:id" element={<FeedbackForm />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/journey" element={<Journey />} />
               <Route path="/join" element={<Join />} />

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { HELPERS, MAIN_JOBS, STATES, LANGUAGES, STATUSES, inr } from '../data/helpers'
+import { HELPERS, MAIN_JOBS, STATES, LANGUAGES, STATUSES, inr, feedbackSummary } from '../data/helpers'
 import { HelperCard, SectionTitle } from '../components/ui'
 
 const FAQS = [
@@ -20,18 +20,33 @@ export function Home() {
   return (
     <main>
       <section className="bg-gradient-to-b from-green-50 to-cream-100 border-b border-amber-100">
-        <div className="max-w-6xl mx-auto px-4 py-12 md:py-16 text-center">
-          <p className="inline-block bg-white border border-amber-300 text-amber-700 text-xs font-bold rounded-full px-3 py-1">🇮🇳 Indian helpers · 🇸🇬 Singapore homes</p>
-          <h1 className="mt-4 text-3xl md:text-5xl font-extrabold text-deep-950 leading-tight">Find an Indian helper<br className="hidden md:block" /> your family can talk to.</h1>
-          <p className="mt-3 text-stone-600 max-w-2xl mx-auto">Read every profile in full — languages, cooking, experience, salary and rest days — for free. Pay only when you want to reveal her number and speak with her directly.</p>
-          <form onSubmit={go} className="mt-6 bg-white rounded-2xl shadow-card p-2 flex flex-col sm:flex-row gap-2 max-w-2xl mx-auto text-left">
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Try “newborn”, “dementia”, “Jain cooking”, “dog”…" className="flex-1 px-3 py-2.5 rounded-xl outline-none" aria-label="Keyword search" />
-            <select value={job} onChange={e => setJob(e.target.value)} className="px-3 py-2.5 rounded-xl border border-stone-200 bg-white" aria-label="Main job">
-              <option value="">All main jobs</option>{MAIN_JOBS.map(j => <option key={j}>{j}</option>)}
-            </select>
-            <button className="bg-deep-800 hover:bg-deep-900 text-white font-semibold rounded-xl px-6 py-2.5">Search</button>
-          </form>
-          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto text-center">
+        <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+          <div className="grid lg:grid-cols-[1.05fr_1fr] gap-8 items-center">
+            <div className="text-center lg:text-left">
+              <p className="inline-block bg-white border border-amber-300 text-amber-700 text-xs font-bold rounded-full px-3 py-1">🇮🇳 Indian helpers · 🇸🇬 Singapore homes</p>
+              <h1 className="mt-4 text-3xl md:text-5xl font-extrabold text-deep-950 leading-tight">Find an Indian helper<br className="hidden md:block" /> your family can talk to.</h1>
+              <p className="mt-3 text-stone-600 max-w-2xl mx-auto lg:mx-0">Read every profile in full — languages, cooking, experience, salary and rest days — for free. Pay only when you want to reveal her number and speak with her directly.</p>
+              <form onSubmit={go} className="mt-6 bg-white rounded-2xl shadow-card p-2 flex flex-col sm:flex-row gap-2 max-w-2xl mx-auto lg:mx-0 text-left">
+                <input value={q} onChange={e => setQ(e.target.value)} placeholder="Try “newborn”, “dementia”, “Jain cooking”, “dog”…" className="flex-1 px-3 py-2.5 rounded-xl outline-none" aria-label="Keyword search" />
+                <select value={job} onChange={e => setJob(e.target.value)} className="px-3 py-2.5 rounded-xl border border-stone-200 bg-white" aria-label="Main job">
+                  <option value="">All main jobs</option>{MAIN_JOBS.map(j => <option key={j}>{j}</option>)}
+                </select>
+                <button className="bg-deep-800 hover:bg-deep-900 text-white font-semibold rounded-xl px-6 py-2.5">Search</button>
+              </form>
+            </div>
+            <div className="relative max-w-xl mx-auto w-full lg:max-w-none">
+              <img src="/images/hero-helper.jpg" alt="An Indian helper watering a plant in a bright Singapore apartment" className="w-full rounded-3xl shadow-card object-cover aspect-[4/3] lg:aspect-[5/4] bg-stone-100" />
+              {(() => { const m = HELPERS.find(x => x.id === 'manjit'); const fs = feedbackSummary(m); return (
+                <Link to="/helper/manjit" className="absolute bottom-4 left-4 bg-white/95 backdrop-blur rounded-2xl shadow-card px-3 py-2 flex items-center gap-2.5 hover:shadow-lg transition">
+                  <img src={m.image} alt="" className="w-10 h-10 rounded-full object-cover object-top" />
+                  <span className="text-left leading-tight">
+                    <span className="block text-sm font-bold text-deep-950">{m.name} · {m.mainJob}</span>
+                    <span className="block text-xs text-stone-500"><span className="text-amber-500">★</span> {fs ? fs.avg.toFixed(1) : '—'} · Employer feedback ({fs ? fs.count : 0})</span>
+                  </span>
+                </Link>) })()}
+            </div>
+          </div>
+          <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto text-center">
             {[['12+', 'Indian helper profiles'], ['100%', 'Free to browse & read'], ['₹499', 'From, per reveal · UPI'], ['S$0', 'Fees charged to helpers']].map(([n, l]) => <div key={l} className="bg-white/70 rounded-xl py-3 px-2"><p className="font-extrabold text-deep-900 text-lg">{n}</p><p className="text-xs text-stone-500">{l}</p></div>)}
           </div>
         </div>

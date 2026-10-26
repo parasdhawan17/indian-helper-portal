@@ -93,6 +93,71 @@ export const HELPERS = [
     history:[{period:'2021 — 2026 · Singapore', family:'Family of 4 with a dog, landed home', duties:'Housekeeping, cooking, pet care, car washing', reason:'Employer relocating; consent to transfer agreed'}],
     expects:'A larger home that needs an independent housekeeper. Fine with dogs.' }),
 ]
+// ---- Employer feedback (seed data) -------------------------------------
+// Feedback left by past employers. Helpers never write their own — a helper
+// sends her personal link (…/#/feedback/<id>) to a past employer, who fills
+// the form. New submissions are stored in localStorage (key 'ihp_feedback')
+// and merged on top of this seed data, newest first. See feedbackFor() below.
+const FEEDBACK_SEED = {
+  manjit: [
+    { employer: 'Ms. Simran G. · Tampines', period: '2022 – 2026', rating: 5, recommend: true, date: 'Oct 2026', text: 'Manjit looked after my 76-year-old mother for four years. Medicines were never missed, she took her for her morning walk daily, and her Punjabi cooking — sarson, rajma, proper rotis — made my mother actually look forward to meals. Trust her completely.' },
+    { employer: 'Mrs. Sharma · Tampines', period: '2022 – 2026', rating: 5, recommend: true, date: 'Sep 2026', text: 'We finished her full contract because we could not let her go. She ran the home quietly, kept everything clean without being told, and treated my parents with real respect. Any family hiring her for eldercare is lucky.' },
+    { employer: 'Mr. Harpreet S. · Bishan', period: '2019 – 2022', rating: 5, recommend: true, date: 'Jun 2022', text: 'Manjit worked for us when our son was nine — cooking, housekeeping and the school run. Very reliable, never late, and our son still asks about her aloo parathas. We only parted because we moved overseas.' },
+  ],
+  mary: [
+    { employer: 'Mr. Daniel T. · Bedok', period: '2023 – 2026', rating: 5, recommend: true, date: 'Oct 2026', text: 'Mary cared for my father through his dementia for three years — night checks, showering, medicines, everything. She stayed calm on his hardest nights and sent us an update every single day. Near the end she was family to us.' },
+    { employer: 'Mrs. Grace T. · Bedok', period: '2023 – 2026', rating: 5, recommend: true, date: 'Sep 2026', text: 'As a nurse myself I notice care standards, and Mary’s are high — safe transfers, skin checks, proper hydration, and she spotted a fever early twice. A true professional for eldercare.' },
+    { employer: 'Ms. Anita R. · Jurong East', period: '2019 – 2023', rating: 5, recommend: true, date: 'Feb 2023', text: 'Mary looked after my mother, who lived alone. She cooked, kept the flat spotless and, most importantly, kept my mother company and safe. We finished the full contract and recommended her to two friends.' },
+  ],
+  anju: [
+    { employer: 'Mrs. Emily C. · Bukit Timah', period: '2023 – 2026', rating: 5, recommend: true, date: 'Oct 2026', text: 'Anju cared for our daughter from her first week. Night feeds, bath time, the sleep routine — she handled everything and kept a written baby log for us. Our baby slept through the night by four months. We are relocating, otherwise we would never let her go.' },
+    { employer: 'Mr. James C. · Bukit Timah', period: '2024 – 2026', rating: 5, recommend: true, date: 'Sep 2026', text: 'She also cared for our toddler while managing the baby. Her English is excellent, she follows our paediatrician’s instructions exactly, and the house stayed tidy around two small children. Agreeing to her transfer was the least we could do.' },
+    { employer: 'Mrs. Deepa N. · Kochi', period: '2021 – 2023', rating: 4, recommend: true, date: 'Jan 2023', text: 'Anju helped us with our newborn twins in Kochi. Two babies at once is no small job and she managed feeds and laundry with a smile. She needed some guidance at the very start, then ran the nursery on her own.' },
+  ],
+  selvi: [
+    { employer: 'Mrs. Radha V. · Toa Payoh', period: '2019 – 2023', rating: 5, recommend: true, date: 'Mar 2023', text: 'Selvi cared for our daughter from age two to six. Her idli and dosa are better than most shops, she taught our girl Tamil songs, and the home was always calm. We still video-call her.' },
+    { employer: 'Mrs. Meena K. · Chennai', period: '2017 – 2019', rating: 4, recommend: true, date: 'Dec 2018', text: 'Selvi cared for both our children in Chennai and cooked daily South Indian food for us. Honest, hardworking and very good with small children.' },
+  ],
+  rinku: [
+    { employer: 'Mrs. Moumita B. · Serangoon', period: '2021 – 2026', rating: 5, recommend: true, date: 'Oct 2026', text: 'Rinku’s cooking kept our family together at the table — fish curry on Sundays, proper luchi, and she planned the whole week’s menu and the marketing herself. Five years with us, zero complaints, and our guests always asked who cooked.' },
+    { employer: 'Mr. Arjun B. · Serangoon', period: '2021 – 2026', rating: 5, recommend: true, date: 'Aug 2026', text: 'I travel for work and Rinku kept the home — and our cat — without supervision for weeks at a time. Fully trustworthy with the house keys.' },
+  ],
+  kavitha: [
+    { employer: 'Mrs. Farah A. · Siglap', period: '2022 – 2026', rating: 5, recommend: true, date: 'Sep 2026', text: 'Kavitha kept our landed home — five people, a garden, endless ironing — on a daily system that never slipped in four years. Quiet, steady and completely independent. Her South Indian cooking was a bonus.' },
+    { employer: 'Mr. Vikram R. · Marine Parade', period: '2017 – 2022', rating: 5, recommend: true, date: 'May 2022', text: 'Kavitha finished her full contract with us and kept a busy condo spotless throughout. We recommended her to her next family ourselves. If you need a housekeeper who just gets on with the work, she is the one.' },
+  ],
+  pooja: [
+    { employer: 'Mrs. Kinjal S. · Serangoon', period: '2022 – 2024', rating: 5, recommend: true, date: 'Nov 2024', text: 'Pure-veg and Jain cooking done properly — separate storage, no onion and garlic during Paryushan, fresh rotis every day. Pooja understood our kitchen rules better than some of our own relatives.' },
+  ],
+  anitha: [
+    { employer: 'Mrs. Sarah L. · Holland Road', period: '2022 – 2026', rating: 5, recommend: true, date: 'Oct 2026', text: 'Anitha cared for our baby from birth while both of us worked full-time. Sterilising, tummy time, the routine chart on the fridge — she ran everything properly and our daughter adores her. We are migrating to Australia; any working couple would be lucky to have her.' },
+    { employer: 'Mrs. Divya M. · Queenstown', period: '2025 – 2026', rating: 5, recommend: true, date: 'Jun 2026', text: 'Anitha looked after our newborn on weekends when she had time off — gentle, careful and fully focused on the baby, phone always away. Very impressed.' },
+  ],
+  sunita: [
+    { employer: 'Mr. Subrata M. · Ang Mo Kio', period: '2020 – 2026', rating: 5, recommend: true, date: 'Aug 2026', text: 'For six years Sunita cooked for my parents, who are in their eighties — soft food, on time, with patience. She reminded them about medicines, went with them to the clinic, and spoke to them in Bengali, which made them feel at home. A gem for elderly Bengali or Hindi-speaking parents.' },
+  ],
+  revathi: [
+    { employer: 'Mrs. Karen W. · Kembangan', period: '2021 – 2026', rating: 5, recommend: true, date: 'Sep 2026', text: 'Revathi managed our four-bedroom landed home end to end — cleaning system, South Indian cooking, our dog’s care, even the car. She works from her own checklist and I never had to follow up on anything in five years.' },
+  ],
+  deepa: [
+    { employer: 'Mrs. Swapna R. · Vijayawada', period: '2025 – 2026', rating: 4, recommend: true, date: 'Jul 2026', text: 'Deepa did our cleaning, laundry and kitchen help for a year. She is new to this work and needs a recipe explained once, but she learns fast, she is honest, and she is gentle with our dog.' },
+  ],
+}
+HELPERS.forEach(h => { h.feedback = FEEDBACK_SEED[h.id] || [] })
+// Profile photo: AI-generated portrait in public/images/<id>.jpg (copied to dist/images/ at build).
+// Absolute path is safe with HashRouter and on the Vercel static deploy.
+export const imageFor = (h) => `/images/${h.id}.jpg`
+HELPERS.forEach(h => { h.image = imageFor(h) })
+export const loadLocalFeedback = () => { try { return JSON.parse(localStorage.getItem('ihp_feedback') || '{}') } catch { return {} } }
+// Merged feedback for a helper: localStorage submissions (newest first), then seed entries.
+export const feedbackFor = (h) => [...(loadLocalFeedback()[h.id] || []).slice().reverse(), ...(h.feedback || [])]
+export const feedbackSummary = (h) => {
+  const list = feedbackFor(h)
+  if (!list.length) return null
+  const avg = list.reduce((a, f) => a + (f.rating || 0), 0) / list.length
+  return { avg: Math.round(avg * 10) / 10, count: list.length }
+}
+
 export const phoneFor = (h) => '+65 8000 ' + String(1 + HELPERS.indexOf(h)).padStart(4, '0')
 export const MAIN_JOBS = ['Infant care','Childcare','Eldercare','Cooking','Housework']
 export const STATES = ['Punjab','Tamil Nadu','Kerala','Andhra Pradesh','West Bengal','Uttar Pradesh']

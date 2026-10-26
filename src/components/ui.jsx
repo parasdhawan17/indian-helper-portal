@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useStore, Avatar, StatusBadge } from '../store'
-import { sgd } from '../data/helpers'
+import { sgd, feedbackSummary } from '../data/helpers'
 
 export function Header() {
   const { credits, setPackModal } = useStore()
@@ -39,10 +39,17 @@ export function Footer() {
       </div>
       <div className="border-t border-white/10"><div className="max-w-6xl mx-auto px-4 py-5 text-xs text-green-200/70 space-y-2">
         <p>This portal is an internet listing portal. It is not an employment agency and does not hold an MOM employment agency licence. Employers and helpers connect and make their own arrangements directly.</p>
-        <p>Prototype — sample profiles. All helpers, numbers and stories on this site are fictional, for demonstration only.</p>
+        <p>Prototype — sample profiles and AI-generated photos. All helpers, numbers and stories on this site are fictional, for demonstration only.</p>
       </div></div>
     </footer>
   )
+}
+
+function CardPhoto({ h }) {
+  const [err, setErr] = useState(false)
+  const initials = h.name.replace('.', '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  if (!h.image || err) return <div aria-hidden="true" style={{ background: h.colour || '#166534' }} className="w-full h-48 flex items-center justify-center text-white font-extrabold text-4xl select-none">{initials}</div>
+  return <img src={h.image} alt={`Portrait of ${h.name}`} loading="lazy" onError={() => setErr(true)} className="w-full h-48 object-cover object-top bg-stone-100" />
 }
 
 export function HelperCard({ h }) {
@@ -54,19 +61,21 @@ export function HelperCard({ h }) {
     setSaved(!saved)
   }
   return (
-    <article className="bg-white rounded-2xl shadow-card border border-stone-100 p-4 flex flex-col gap-3 hover:shadow-lg transition">
-      <div className="flex gap-3">
-        <Avatar h={h} size={64} />
-        <div className="min-w-0">
-          <h3 className="font-bold text-deep-950 truncate">{h.name}, {h.age}</h3>
-          <p className="text-xs text-stone-500">{h.state} · In {h.location}</p>
-          <div className="mt-1.5"><StatusBadge s={h.status} /></div>
-        </div>
-        <button onClick={toggleSave} aria-label={saved ? 'Remove from saved' : 'Save this helper'} title={saved ? 'Saved' : 'Save'} className={`ml-auto shrink-0 w-9 h-9 rounded-full border flex items-center justify-center text-base ${saved ? 'bg-amber-100 border-amber-400' : 'bg-white border-stone-200 hover:border-amber-400'}`}>{saved ? '🔖' : '🏷️'}</button>
+    <article className="bg-white rounded-2xl shadow-card border border-stone-100 overflow-hidden flex flex-col hover:shadow-lg transition">
+      <div className="relative shrink-0">
+        <CardPhoto h={h} />
+        <button onClick={toggleSave} aria-label={saved ? 'Remove from saved' : 'Save this helper'} title={saved ? 'Saved' : 'Save'} className={`absolute top-2.5 right-2.5 shrink-0 w-9 h-9 rounded-full border flex items-center justify-center text-base shadow-sm ${saved ? 'bg-amber-100 border-amber-400' : 'bg-white/95 border-stone-200 hover:border-amber-400'}`}>{saved ? '🔖' : '🏷️'}</button>
+        <div className="absolute bottom-2.5 left-2.5"><StatusBadge s={h.status} /></div>
       </div>
-      <p className="text-sm font-semibold text-deep-900">{h.mainJob}</p>
-      <div className="flex items-center gap-3 text-xs text-stone-600 -mt-1">
+      <div className="p-4 flex flex-col gap-3 flex-1">
+      <div className="min-w-0">
+        <h3 className="font-bold text-deep-950 truncate">{h.name}, {h.age}</h3>
+        <p className="text-xs text-stone-500">{h.state} · In {h.location}</p>
+      </div>
+      <p className="text-sm font-semibold text-deep-900 -mt-1">{h.mainJob}</p>
+      <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-xs text-stone-600 -mt-1">
         <span>⭐ {h.yearsSG > 0 ? `${h.yearsSG} yrs in SG` : 'New to SG'}</span><span>·</span><span>{h.totalYears} yrs total exp.</span><span>·</span><span>✓ Confirmed {h.confirmedDays === 0 ? 'today' : `${h.confirmedDays}d ago`}</span>
+        {(() => { const fs = feedbackSummary(h); return fs ? <><span>·</span><span><span className="text-amber-500">★</span> <b className="text-deep-900">{fs.avg.toFixed(1)}</b> ({fs.count} review{fs.count === 1 ? '' : 's'})</span></> : null })()}
       </div>
       <p className="text-sm text-stone-600 line-clamp-2">{h.about}</p>
       <div className="flex flex-wrap gap-1.5">
@@ -77,6 +86,7 @@ export function HelperCard({ h }) {
       <div className="mt-auto pt-2 border-t border-stone-100 flex items-end justify-between gap-2">
         <div><p className="font-extrabold text-deep-800 text-lg leading-none">{sgd(h.salary)}<span className="text-xs font-medium text-stone-500">/mo expected</span></p><p className="text-[11px] text-stone-500 mt-1">{h.restDays} rest day{h.restDays > 1 ? 's' : ''}/mo · {h.available}</p></div>
         <button onClick={() => nav('/helper/' + h.id)} className="shrink-0 bg-deep-800 hover:bg-deep-900 text-white text-sm font-semibold rounded-xl px-4 py-2">View profile</button>
+      </div>
       </div>
     </article>
   )

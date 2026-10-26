@@ -1,14 +1,81 @@
 import React, { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { HELPERS, phoneFor, sgd, inr } from '../data/helpers'
+import { HELPERS, phoneFor, sgd, inr, feedbackFor, feedbackSummary } from '../data/helpers'
 import { useStore, Avatar, StatusBadge } from '../store'
 import { SectionTitle } from '../components/ui'
+
+export const StarRow = ({ n, className = 'text-base' }) => (
+  <span className={`tracking-tight ${className}`} aria-label={`${n} out of 5 stars`}>
+    {[1, 2, 3, 4, 5].map(i => <span key={i} className={i <= Math.round(n) ? 'text-amber-500' : 'text-stone-300'}>★</span>)}
+  </span>
+)
+
+function HelperPhoto({ h }) {
+  const [err, setErr] = useState(false)
+  const initials = h.name.replace('.', '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  const cls = 'w-full sm:w-60 shrink-0 aspect-[4/3] sm:aspect-square rounded-2xl'
+  if (!h.image || err) return <div aria-hidden="true" style={{ background: h.colour || '#166534' }} className={`${cls} flex items-center justify-center text-white font-extrabold text-5xl select-none`}>{initials}</div>
+  return <img src={h.image} alt={`Portrait of ${h.name}`} onError={() => setErr(true)} className={`${cls} object-cover object-top bg-stone-100`} />
+}
+
+const skillIcon = (s) => {
+  const k = s.toLowerCase()
+  if (k.includes('infant')) return '👶'
+  if (k.includes('dementia')) return '💜'
+  if (k.includes('night')) return '🌙'
+  if (k.includes('eldercare') || k.includes('elderly') || k.includes('mobility')) return '🧓'
+  if (k.includes('childcare')) return '🧒'
+  if (k.includes('homework') || k.includes('school')) return '🎒'
+  if (k.includes('pet')) return '🐾'
+  if (k.includes('garden')) return '🌱'
+  if (k.includes('laundry') || k.includes('ironing')) return '👕'
+  if (k.includes('grocery') || k.includes('marketing')) return '🛒'
+  if (k.includes('car')) return '🚗'
+  if (k.includes('cooking')) return '🍳'
+  if (k.includes('housekeeping')) return '🧹'
+  return '⭐'
+}
+const levelDots = (lvl) => lvl === 'Experienced' ? 3 : lvl === 'Some experience' ? 2 : 1
+
+function AskFeedbackModal({ h, onClose }) {
+  const first = h.name.split(' ')[0]
+  const link = `${window.location.origin}${window.location.pathname}#/feedback/${h.id}`
+  const template = `Hello, I am ${h.name} from IndianHelper SG. I am building my profile there. Could you please leave feedback about my work? It takes 2 minutes: ${link}`
+  const [copied, setCopied] = useState('')
+  const copy = async (text, what) => {
+    try { await navigator.clipboard.writeText(text); setCopied(what) }
+    catch { setCopied('') }
+    setTimeout(() => setCopied(''), 2500)
+  }
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-3" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-lg w-full p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="font-extrabold text-deep-950 text-lg">Ask a past employer for feedback</h3>
+          <button onClick={onClose} aria-label="Close" className="text-stone-400 hover:text-stone-700 text-xl leading-none">✕</button>
+        </div>
+        <p className="text-sm text-stone-600 mt-2">{first} can send this personal link to any employer she has worked for. Their feedback appears on this profile under “Feedback from employers”. <b>Feedback is free for both sides</b> — nobody pays anything for it.</p>
+        <p className="text-xs font-semibold text-stone-500 mt-4 mb-1">{first}’s feedback link</p>
+        <div className="flex gap-2">
+          <input readOnly value={link} onFocus={e => e.target.select()} className="flex-1 min-w-0 text-xs bg-stone-100 border border-stone-200 rounded-lg px-2.5 py-2 font-mono" />
+          <button onClick={() => copy(link, 'link')} className="shrink-0 bg-deep-800 hover:bg-deep-900 text-white text-sm font-semibold rounded-lg px-3 py-2">{copied === 'link' ? 'Copied ✓' : 'Copy link'}</button>
+        </div>
+        <a href={`https://wa.me/?text=${encodeURIComponent(template)}`} target="_blank" rel="noreferrer" className="mt-3 block text-center bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl py-2.5 text-sm">💬 Send the request on WhatsApp</a>
+        <p className="text-xs font-semibold text-stone-500 mt-4 mb-1">Message you can copy and send anywhere</p>
+        <div className="bg-cream-50 border border-amber-200 rounded-xl p-3 text-sm text-stone-700">{template}</div>
+        <button onClick={() => copy(template, 'msg')} className="mt-2 text-sm font-semibold text-deep-700 underline">{copied === 'msg' ? 'Copied ✓' : 'Copy this message'}</button>
+        <p className="text-[11px] text-stone-400 mt-4">Note: in this prototype the feedback appears on the profile right away; in the real portal it is checked once before it shows.</p>
+      </div>
+    </div>
+  )
+}
 
 export function Profile() {
   const { id } = useParams()
   const h = HELPERS.find(x => x.id === id)
   const { credits, isRevealed, reveal, setPackModal } = useStore()
   const [msg, setMsg] = useState('')
+  const [showAsk, setShowAsk] = useState(false)
   if (!h) return <main className="max-w-3xl mx-auto px-4 py-16 text-center"><p className="font-bold">Profile not found.</p><Link to="/browse" className="text-deep-700 underline">Back to browse</Link></main>
   const revealed = isRevealed(h.id)
   const phone = phoneFor(h)
@@ -16,30 +83,54 @@ export function Profile() {
     if (reveal(h)) setMsg('Number revealed — it is saved in My Reveals, and you never pay again for this helper.')
     else setMsg('')
   }
-  const stars = (lvl) => lvl === 'Experienced' ? '●●● Experienced' : lvl === 'Some experience' ? '●●○ Some experience' : '●○○ Willing to learn'
+  const fb = feedbackFor(h)
+  const fbSum = feedbackSummary(h)
+  const first = h.name.split(' ')[0]
+  const isMainSkill = (s) => {
+    const k = s.toLowerCase()
+    return k.includes(h.mainJob.split(' ')[0].toLowerCase()) || (h.mainJob === 'Housework' && k.includes('housekeeping')) || (h.mainJob === 'Infant care' && k.includes('childcare'))
+  }
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
       <Link to="/browse" className="text-sm text-deep-700 font-semibold">← Back to browse</Link>
       <div className="grid lg:grid-cols-[1fr_340px] gap-6 items-start mt-4">
         <div className="space-y-5">
           <section className="bg-white rounded-2xl border border-stone-200 p-5">
-            <div className="flex gap-4 flex-wrap">
-              <Avatar h={h} size={88} />
-              <div>
+            <div className="flex flex-col sm:flex-row gap-5">
+              <HelperPhoto h={h} />
+              <div className="flex-1 min-w-0">
                 <h1 className="text-2xl font-extrabold text-deep-950">{h.name}, {h.age}</h1>
-                <p className="text-stone-500 text-sm">From {h.state}, India · Currently in {h.location}</p>
+                {fbSum && <a href="#employer-feedback" className="inline-flex items-center gap-1.5 mt-1 text-sm"><StarRow n={fbSum.avg} /><span className="font-bold text-deep-900">{fbSum.avg.toFixed(1)}</span><span className="text-stone-500">({fbSum.count} employer review{fbSum.count === 1 ? '' : 's'})</span></a>}
+                <p className="text-stone-500 text-sm mt-0.5">From {h.state}, India · Currently in {h.location}</p>
                 <div className="flex gap-2 mt-2 flex-wrap"><StatusBadge s={h.status} /><span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-cream-100 border-amber-200">{h.available}</span><span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-green-50 border-green-200 text-green-800">✓ Confirmed available {h.confirmedDays === 0 ? 'today' : `${h.confirmedDays} days ago`}</span></div>
                 <p className="mt-3 font-semibold text-deep-900">{h.mainJob} · {h.yearsSG} years in Singapore · {h.totalYears} years total experience</p>
+                <div className="flex items-center gap-3 flex-wrap mt-4 pt-4 border-t border-stone-100">
+                  <p className="text-sm text-stone-500">Expected salary<br /><span className="text-xl font-extrabold text-deep-800">{sgd(h.salary)}<span className="text-xs font-medium text-stone-500">/mo</span></span></p>
+                  {!revealed
+                    ? <button onClick={doReveal} className="ml-auto bg-deep-800 hover:bg-deep-900 text-white font-semibold rounded-xl px-5 py-3">Reveal her number · 1 credit</button>
+                    : <p className="ml-auto font-mono font-bold bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-deep-900">{phone}</p>}
+                </div>
+                <p className="text-xs text-stone-400 mt-2">{revealed ? 'Number revealed — also saved in My Reveals.' : `Your balance: ${credits} credit${credits === 1 ? '' : 's'} · everything else on this profile is free to read.`}</p>
               </div>
             </div>
-            <h2 className="font-bold mt-6 mb-1">About me</h2><p className="text-stone-700 text-sm leading-relaxed">{h.about}</p>
-            <h2 className="font-bold mt-6 mb-1">What I am looking for</h2><p className="text-stone-700 text-sm leading-relaxed">{h.expects}</p>
           </section>
 
-          <section className="bg-white rounded-2xl border border-stone-200 p-5">
-            <h2 className="font-bold mb-3">Skills &amp; experience</h2>
-            <ul className="divide-y divide-stone-100 text-sm">{h.skills.map(([s, l]) => <li key={s} className="py-2 flex justify-between gap-3"><span>{s}</span><span className="text-deep-700 font-medium shrink-0">{stars(l)}</span></li>)}</ul>
-            <h3 className="font-bold mt-5 mb-2">Languages</h3>
+          <section className="bg-white rounded-2xl border-2 border-deep-700 p-5 shadow-card">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
+              <h2 className="text-xl font-extrabold text-deep-950">⭐ Skills</h2>
+              <p className="text-xs text-stone-500">● ● ● Experienced · ● ● ○ Some experience · ● ○ ○ Willing to learn</p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4">
+              {h.skills.map(([s, l]) => (
+                <div key={s} className={`rounded-2xl border p-3.5 flex flex-col items-center text-center gap-1.5 ${isMainSkill(s) ? 'border-deep-700 bg-green-50 ring-1 ring-deep-700' : 'border-stone-200 bg-cream-50'}`}>
+                  <span className="text-4xl leading-none">{skillIcon(s)}</span>
+                  <p className="text-sm font-semibold text-deep-950 leading-snug">{s}</p>
+                  <span className="tracking-[0.2em] text-sm leading-none" aria-hidden="true">{[1, 2, 3].map(i => <span key={i} className={i <= levelDots(l) ? 'text-deep-700' : 'text-stone-300'}>●</span>)}</span>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${isMainSkill(s) ? 'bg-deep-700 text-white' : 'bg-white border border-amber-300 text-deep-900'}`}>{l}{isMainSkill(s) ? ' · Main skill' : ''}</span>
+                </div>
+              ))}
+            </div>
+            <h3 className="font-bold mt-6 mb-2">Languages</h3>
             <div className="flex flex-wrap gap-2">{h.languages.map(([l, lv]) => <span key={l} className="text-sm bg-cream-100 border border-amber-200 rounded-full px-3 py-1">{l} — {lv}</span>)}</div>
             <h3 className="font-bold mt-5 mb-2">Cooking &amp; food handling</h3>
             <ul className="text-sm text-stone-700 space-y-1.5">
@@ -47,6 +138,34 @@ export function Profile() {
               <li>🥬 Pure-vegetarian cooking: <b>{h.veg ? 'Yes' : 'No'}</b> · Jain / no onion-garlic: <b>{h.jain ? 'Yes' : 'No'}</b></li>
               <li>🥓 Can handle &amp; cook pork: <b>{h.pork ? 'Yes' : 'No'}</b> · Beef: <b>{h.beef ? 'Yes' : 'No'}</b></li>
             </ul>
+          </section>
+
+          <section className="bg-white rounded-2xl border border-stone-200 p-5">
+            <h2 className="font-bold mb-1">About me</h2><p className="text-stone-700 text-sm leading-relaxed">{h.about}</p>
+            <h2 className="font-bold mt-6 mb-1">What I am looking for</h2><p className="text-stone-700 text-sm leading-relaxed">{h.expects}</p>
+          </section>
+
+          <section id="employer-feedback" className="bg-white rounded-2xl border border-stone-200 p-5 scroll-mt-24">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="font-bold text-lg text-deep-950">Feedback from employers</h2>
+                {fbSum
+                  ? <p className="flex items-center gap-2 mt-1"><StarRow n={fbSum.avg} className="text-xl" /><span className="font-extrabold text-deep-900">{fbSum.avg.toFixed(1)} average</span><span className="text-sm text-stone-500">· {fbSum.count} review{fbSum.count === 1 ? '' : 's'}</span></p>
+                  : <p className="text-sm text-stone-500 mt-1">No employer feedback yet.</p>}
+              </div>
+              <button onClick={() => setShowAsk(true)} className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl px-4 py-2.5">✉️ Ask for feedback</button>
+            </div>
+            {fb.length > 0 ? <div className="space-y-3 mt-4">{fb.map((f, i) => (
+              <article key={i} className="bg-cream-50 border border-amber-100 rounded-2xl p-4">
+                <div className="flex items-center gap-2 flex-wrap"><StarRow n={f.rating} />{f.recommend && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-100 border border-green-300 text-green-800">👍 Would recommend</span>}<span className="text-xs text-stone-400 ml-auto">{f.date}</span></div>
+                <p className="text-sm text-stone-700 leading-relaxed mt-2">“{f.text}”</p>
+                <p className="text-xs text-stone-500 mt-2"><b className="text-deep-900">{f.employer}</b> · Employed her {f.period}</p>
+              </article>))}
+            </div> : <p className="text-sm text-stone-600 mt-3 bg-cream-50 border border-amber-100 rounded-xl p-3">No employer feedback yet — {first} is new here. Employers who have worked with her can add feedback free with her personal link.</p>}
+            <div className="mt-4 bg-green-50 border border-green-200 rounded-xl p-3.5 text-sm text-stone-700">
+              <b className="text-deep-900">Worked with {first} before?</b> You can leave feedback for her free — it helps her next employer choose with confidence. <button onClick={() => setShowAsk(true)} className="font-semibold text-deep-700 underline">Get her feedback link</button>
+              <span className="block text-xs text-stone-500 mt-1">For helpers: this is your link to send to past employers — tap “Get her feedback link”.</span>
+            </div>
           </section>
 
           <section className="bg-white rounded-2xl border border-stone-200 p-5">
@@ -86,6 +205,7 @@ export function Profile() {
           </>}
         </aside>
       </div>
+      {showAsk && <AskFeedbackModal h={h} onClose={() => setShowAsk(false)} />}
     </main>
   )
 }

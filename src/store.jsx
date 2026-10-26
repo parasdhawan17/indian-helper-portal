@@ -24,9 +24,12 @@ export function StoreProvider({ children }) {
   return <Ctx.Provider value={{ credits, reveals, isRevealed, reveal, buyPack, restoreCredit, packModal, setPackModal }}>{children}</Ctx.Provider>
 }
 
-export function Avatar({ h, size = 64 }) {
+export function Avatar({ h, size = 64, variant = 'circle' }) {
+  const [err, setErr] = useState(false)
   const initials = h.name.replace('.', '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  return <div aria-hidden="true" style={{ width: size, height: size, background: h.colour || '#166534' }} className="rounded-full shrink-0 flex items-center justify-center text-white font-bold select-none">{initials}</div>
+  const shape = variant === 'square' ? 'rounded-2xl' : 'rounded-full'
+  if (h.image && !err) return <img src={h.image} alt={`Portrait of ${h.name}`} onError={() => setErr(true)} style={{ width: size, height: size }} className={`${shape} shrink-0 object-cover select-none bg-stone-100`} />
+  return <div aria-hidden="true" style={{ width: size, height: size, background: h.colour || '#166534' }} className={`${shape} shrink-0 flex items-center justify-center text-white font-bold select-none`}>{initials}</div>
 }
 export const StatusBadge = ({ s }) => {
   const map = { 'Transfer': 'bg-amber-100 text-amber-800 border-amber-300', 'Finished contract': 'bg-green-100 text-green-800 border-green-300', 'Ex-Singapore': 'bg-sky-100 text-sky-800 border-sky-300', 'Fresh': 'bg-stone-100 text-stone-700 border-stone-300' }
