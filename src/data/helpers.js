@@ -92,6 +92,22 @@ export const HELPERS = [
     about:'Five years in Singapore in larger homes. I manage full housekeeping for a 4-bedroom home, South Indian cooking, dog care and car washing on a weekly system. I work from a checklist and finish without supervision.',
     history:[{period:'2021 — 2026 · Singapore', family:'Family of 4 with a dog, landed home', duties:'Housekeeping, cooking, pet care, car washing', reason:'Employer relocating; consent to transfer agreed'}],
     expects:'A larger home that needs an independent housekeeper. Fine with dogs.' }),
+  H({ id:'harpreet', name:'Harpreet K.', age:30, state:'Punjab', status:'Fresh', location:'India', available:'From Jan 2027 (overseas process)', availableInDays:60, mainJob:'Childcare', salary:620, restDays:2, yearsSG:0, totalYears:3, confirmedDays:1, colour:'#9a3412',
+    languages:[['Punjabi','Fluent'],['Hindi','Fluent'],['English','Conversational']],
+    cuisines:['North Indian','Punjabi home cooking'], veg:true, jain:false, pork:false, beef:false,
+    skills:[['Childcare (1–6 yrs)','Experienced'],['Cooking','Experienced'],['General housekeeping','Some experience'],['Homework / school run','Some experience']],
+    about:'I am from Amritsar, Punjab. For 3 years I have cared for two children in my home town — a girl of 4 and a boy of 6 — cooking their meals, helping with homework and keeping their routine. I cook proper Punjabi home food and I am patient and cheerful with children. This profile is listed by my supplier, Sunrise Helpers, who will arrange my first Singapore job.',
+    history:[{period:'2023 — 2026 · India (Amritsar)', family:'Family with 2 children (4 and 6)', duties:'Childcare, cooking, homework help, school run', reason:'Looking for first Singapore job'}],
+    expects:'A family with young children who will guide me in the first weeks. Overseas hiring process applies.',
+    listedBy:{ supplierId:'sunrise', name:'Sunrise Helpers' } }),
+  H({ id:'latha', name:'Latha S.', age:37, state:'Tamil Nadu', status:'Ex-Singapore', location:'India', available:'From 1 Dec 2026', availableInDays:35, mainJob:'Cooking', salary:690, restDays:2, yearsSG:3, totalYears:6, confirmedDays:4, colour:'#155e75',
+    languages:[['Tamil','Fluent'],['English','Conversational'],['Hindi','Basic']],
+    cuisines:['South Indian'], veg:true, jain:false, pork:false, beef:false,
+    skills:[['Cooking','Experienced'],['General housekeeping','Experienced'],['Grocery / marketing','Experienced'],['Childcare (7–12 yrs)','Some experience']],
+    about:'I am from Trichy, Tamil Nadu. I worked in Singapore for 3 years as the cook for a Tamil family — sambar, rasam, poriyal, kootu and festival cooking — and I plan the week\u2019s menu and marketing list myself. I am back in India now and ready to return. This profile is listed by my supplier, Sunrise Helpers.',
+    history:[{period:'2019 — 2022 · Singapore', family:'Tamil family — 4 adults', duties:'All South Indian cooking, marketing, kitchen and housekeeping support', reason:'Finished work and returned home'}],
+    expects:'A cooking-focused South Indian home. Happy to discuss details with my supplier on a callback.',
+    listedBy:{ supplierId:'sunrise', name:'Sunrise Helpers' } }),
 ]
 // ---- Employer feedback (seed data) -------------------------------------
 // Feedback left by past employers. Helpers never write their own — a helper
@@ -142,6 +158,9 @@ const FEEDBACK_SEED = {
   deepa: [
     { employer: 'Mrs. Swapna R. · Vijayawada', period: '2025 – 2026', rating: 4, recommend: true, date: 'Jul 2026', text: 'Deepa did our cleaning, laundry and kitchen help for a year. She is new to this work and needs a recipe explained once, but she learns fast, she is honest, and she is gentle with our dog.' },
   ],
+  latha: [
+    { employer: 'Mrs. Anita D. · Little India', period: '2019 – 2022', rating: 5, recommend: true, date: 'Jun 2022', text: 'Latha cooked for our family of four for three years — her sambar and rasam taste like home, and she managed the marketing and the kitchen budget without waste. A dependable, honest cook.' },
+  ],
 }
 HELPERS.forEach(h => { h.feedback = FEEDBACK_SEED[h.id] || [] })
 // Profile photo: AI-generated portrait in public/images/<id>.jpg (copied to dist/images/ at build).
@@ -163,3 +182,41 @@ export const MAIN_JOBS = ['Infant care','Childcare','Eldercare','Cooking','House
 export const STATES = ['Punjab','Tamil Nadu','Kerala','Andhra Pradesh','West Bengal','Uttar Pradesh']
 export const LANGUAGES = ['Hindi','Punjabi','Tamil','Telugu','Malayalam','Bengali','English']
 export const STATUSES = ['Transfer','Finished contract','Ex-Singapore','Fresh']
+
+// ---- Suppliers -----------------------------------------------------------
+// A supplier lists helper profiles. On supplier profiles there is NO number
+// to reveal: employers request a free callback, and the SUPPLIER pays
+// 1 credit to unlock the employer's number from the request.
+export const SUPPLIERS = [
+  { id: 'sunrise', business: 'Sunrise Helpers', contactPerson: 'Rajesh Kumar', base: 'Ludhiana, Punjab', about: 'We list Punjabi and South Indian helpers for Singapore homes. We prepare each helper\u2019s profile, verify her documents with her, and arrange her interview calls with employers.' },
+]
+export const loadSupplierProfiles = () => { try { const v = JSON.parse(localStorage.getItem('ihp_supplier_profiles') || '[]'); return Array.isArray(v) ? v : [] } catch { return [] } }
+// Every profile the site shows: the seed helpers + supplier-added profiles.
+export const allHelpers = () => {
+  const extra = loadSupplierProfiles().map(h => ({ feedback: [], ...h, image: h.image || imageFor(h) }))
+  return [...HELPERS, ...extra]
+}
+export const loadSavedSupplier = () => { try { return JSON.parse(localStorage.getItem('ihp_supplier') || 'null') } catch { return null } }
+// Resolve a listedBy.supplierId to a supplier record (seed supplier or the signed-up demo supplier).
+export const supplierById = (id) => {
+  if (!id) return null
+  const seed = SUPPLIERS.find(s => s.id === id)
+  if (seed) return { business: seed.business, contactPerson: seed.contactPerson, base: seed.base, about: seed.about }
+  const mine = loadSavedSupplier()
+  if (mine && mine.id === id) return { business: mine.business, contactPerson: mine.name, base: mine.base, about: mine.about }
+  return null
+}
+
+// ---- Callback requests -----------------------------------------------------
+// Employer -> supplier. Stored in localStorage 'ihp_callbacks'; the employer's
+// full number is stored but only ever RENDERED masked until the supplier
+// pays 1 credit to unlock that request.
+export const loadCallbacks = () => { try { const v = JSON.parse(localStorage.getItem('ihp_callbacks') || '[]'); return Array.isArray(v) ? v : [] } catch { return [] } }
+export const addCallback = (cb) => { try { const all = loadCallbacks(); all.push(cb); localStorage.setItem('ihp_callbacks', JSON.stringify(all)) } catch {} }
+export const updateCallback = (id, patch) => { try { const all = loadCallbacks().map(c => c.id === id ? { ...c, ...patch } : c); localStorage.setItem('ihp_callbacks', JSON.stringify(all)); return all } catch { return loadCallbacks() } }
+export const maskPhone = (phone) => {
+  const digits = String(phone || '').replace(/\D/g, '')
+  const last4 = digits.slice(-4) || '••••'
+  const prefix = String(phone || '').trim().startsWith('+65') ? '+65' : '+••'
+  return `${prefix} •••• ${last4}`
+}

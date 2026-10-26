@@ -7,6 +7,7 @@ import { Home, Browse } from './pages/HomeBrowse'
 import { Profile, Pricing, MyReveals } from './pages/ProfilePricing'
 import { Journey, Join } from './pages/JourneyJoin'
 import { FeedbackForm } from './pages/Feedback'
+import { SupplierLanding, SupplierDashboard, SupplierAdd } from './pages/Supplier'
 import './index.css'
 
 const Legal = ({ title, children }) => (
@@ -34,6 +35,9 @@ function App() {
               <Route path="/journey" element={<Journey />} />
               <Route path="/join" element={<Join />} />
               <Route path="/reveals" element={<MyReveals />} />
+              <Route path="/supplier" element={<SupplierLanding />} />
+              <Route path="/supplier/dashboard" element={<SupplierDashboard />} />
+              <Route path="/supplier/add" element={<SupplierAdd />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
             </Routes>

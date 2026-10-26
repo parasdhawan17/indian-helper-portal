@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { HELPERS, phoneFor, sgd, inr, feedbackFor, feedbackSummary } from '../data/helpers'
+import { HELPERS, allHelpers, phoneFor, sgd, inr, feedbackFor, feedbackSummary, supplierById, loadCallbacks, addCallback } from '../data/helpers'
 import { useStore, Avatar, StatusBadge } from '../store'
 import { SectionTitle } from '../components/ui'
 
@@ -70,9 +70,58 @@ function AskFeedbackModal({ h, onClose }) {
   )
 }
 
+// Supplier-listed profiles have no number to reveal: the employer asks for a
+// free callback instead, and the request lands in the supplier's dashboard.
+function CallbackPanel({ h }) {
+  const sup = supplierById(h.listedBy.supplierId)
+  const supName = sup?.business || h.listedBy.name
+  const first = h.name.split(' ')[0]
+  const existing = loadCallbacks().filter(c => c.helperId === h.id).slice(-1)[0]
+  const [form, setForm] = useState({ name: '', phone: '', time: 'Morning', message: '' })
+  const [errs, setErrs] = useState({})
+  const [sentPhone, setSentPhone] = useState(existing ? existing.employerPhone : '')
+  const set = (k, v) => setForm(s => ({ ...s, [k]: v }))
+  const submit = (e) => {
+    e.preventDefault()
+    const er = {}
+    if (!form.name.trim()) er.name = 'Please enter your name'
+    if (!/^[+\d][\d\s]{7,}$/.test(form.phone.trim())) er.phone = 'Enter a valid mobile number the supplier can call you on'
+    setErrs(er)
+    if (Object.keys(er).length) return
+    addCallback({ id: 'cb-' + Date.now().toString(36), helperId: h.id, supplierId: h.listedBy.supplierId, employerName: form.name.trim(), employerPhone: form.phone.trim(), time: form.time, message: form.message.trim(), at: new Date().toISOString(), unlocked: false })
+    setSentPhone(form.phone.trim())
+  }
+  const E = ({ k }) => errs[k] ? <p className="text-xs text-red-700 mt-1 font-medium">{errs[k]}</p> : null
+  const input = 'w-full border border-stone-300 rounded-xl px-3 py-2.5 mt-1 bg-white text-sm'
+  if (sentPhone) return (
+    <>
+      <h2 className="font-bold text-deep-950">Request a callback</h2>
+      <div className="mt-3 bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-stone-700">
+        <p className="font-bold text-deep-900">Request sent ✓</p>
+        <p className="mt-1">{supName} will call you back on <b>{sentPhone}</b>. There is nothing to pay — the callback request is free for employers.</p>
+        <p className="text-xs text-stone-500 mt-2">Your number goes to {supName} only, for this callback. (Prototype: the request is saved in this browser and appears in the supplier dashboard on this device.)</p>
+      </div>
+    </>
+  )
+  return (
+    <>
+      <h2 className="font-bold text-deep-950">Request a callback</h2>
+      <p className="text-sm text-stone-600 mt-2">This profile is listed by a supplier, so there is no number to reveal. Ask for a callback instead — it is <b>free</b>, no credits needed. {supName} will call you to discuss {first}.</p>
+      <form onSubmit={submit} className="mt-3 space-y-3" noValidate>
+        <label className="block text-sm font-medium">Your name<input className={input} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Priya Nair" /><E k="name" /></label>
+        <label className="block text-sm font-medium">Your mobile number<input className={input} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+65 …" /><E k="phone" /></label>
+        <label className="block text-sm font-medium">Best time to call<select className={input} value={form.time} onChange={e => set('time', e.target.value)}><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label>
+        <label className="block text-sm font-medium">Short message <span className="text-stone-400 font-normal">(optional)</span><textarea rows={3} className={input} value={form.message} onChange={e => set('message', e.target.value)} placeholder={`e.g. We are looking for ${first} to help with…`} /></label>
+        <button className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl py-3">Request a callback — free</button>
+      </form>
+      <p className="text-xs text-stone-500 mt-3">How it works: your number stays hidden from the supplier until they choose to unlock it (they pay 1 credit — you pay nothing). They then call you back directly.</p>
+    </>
+  )
+}
+
 export function Profile() {
   const { id } = useParams()
-  const h = HELPERS.find(x => x.id === id)
+  const h = allHelpers().find(x => x.id === id)
   const { credits, isRevealed, reveal, setPackModal } = useStore()
   const [msg, setMsg] = useState('')
   const [showAsk, setShowAsk] = useState(false)
@@ -102,18 +151,33 @@ export function Profile() {
                 <h1 className="text-2xl font-extrabold text-deep-950">{h.name}, {h.age}</h1>
                 {fbSum && <a href="#employer-feedback" className="inline-flex items-center gap-1.5 mt-1 text-sm"><StarRow n={fbSum.avg} /><span className="font-bold text-deep-900">{fbSum.avg.toFixed(1)}</span><span className="text-stone-500">({fbSum.count} employer review{fbSum.count === 1 ? '' : 's'})</span></a>}
                 <p className="text-stone-500 text-sm mt-0.5">From {h.state}, India · Currently in {h.location}</p>
-                <div className="flex gap-2 mt-2 flex-wrap"><StatusBadge s={h.status} /><span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-cream-100 border-amber-200">{h.available}</span><span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-green-50 border-green-200 text-green-800">✓ Confirmed available {h.confirmedDays === 0 ? 'today' : `${h.confirmedDays} days ago`}</span></div>
+                <div className="flex gap-2 mt-2 flex-wrap"><StatusBadge s={h.status} />{h.listedBy && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border bg-amber-100 border-amber-300 text-amber-800">🏢 Listed by supplier</span>}<span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-cream-100 border-amber-200">{h.available}</span><span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-green-50 border-green-200 text-green-800">✓ Confirmed available {h.confirmedDays === 0 ? 'today' : `${h.confirmedDays} days ago`}</span></div>
                 <p className="mt-3 font-semibold text-deep-900">{h.mainJob} · {h.yearsSG} years in Singapore · {h.totalYears} years total experience</p>
                 <div className="flex items-center gap-3 flex-wrap mt-4 pt-4 border-t border-stone-100">
                   <p className="text-sm text-stone-500">Expected salary<br /><span className="text-xl font-extrabold text-deep-800">{sgd(h.salary)}<span className="text-xs font-medium text-stone-500">/mo</span></span></p>
-                  {!revealed
-                    ? <button onClick={doReveal} className="ml-auto bg-deep-800 hover:bg-deep-900 text-white font-semibold rounded-xl px-5 py-3">Reveal her number · 1 credit</button>
-                    : <p className="ml-auto font-mono font-bold bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-deep-900">{phone}</p>}
+                  {h.listedBy
+                    ? <a href="#request-callback" className="ml-auto bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl px-5 py-3">Request a callback — free</a>
+                    : !revealed
+                      ? <button onClick={doReveal} className="ml-auto bg-deep-800 hover:bg-deep-900 text-white font-semibold rounded-xl px-5 py-3">Reveal her number · 1 credit</button>
+                      : <p className="ml-auto font-mono font-bold bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-deep-900">{phone}</p>}
                 </div>
-                <p className="text-xs text-stone-400 mt-2">{revealed ? 'Number revealed — also saved in My Reveals.' : `Your balance: ${credits} credit${credits === 1 ? '' : 's'} · everything else on this profile is free to read.`}</p>
+                <p className="text-xs text-stone-400 mt-2">{h.listedBy ? 'Supplier-listed profile — there is no number to reveal. Request a free callback and the supplier will call you.' : revealed ? 'Number revealed — also saved in My Reveals.' : `Your balance: ${credits} credit${credits === 1 ? '' : 's'} · everything else on this profile is free to read.`}</p>
               </div>
             </div>
           </section>
+
+          {h.listedBy && (() => { const sup = supplierById(h.listedBy.supplierId); return (
+            <section className="bg-amber-50 rounded-2xl border border-amber-300 p-5">
+              <div className="flex items-start gap-3 flex-wrap">
+                <span className="text-3xl" aria-hidden="true">🏢</span>
+                <div className="flex-1 min-w-[220px]">
+                  <h2 className="font-bold text-deep-950">Listed by {sup?.business || h.listedBy.name}</h2>
+                  <p className="text-sm text-stone-600">{sup?.contactPerson ? `Contact person: ${sup.contactPerson} · ` : ''}{sup?.base ? `Based in ${sup.base}` : ''}</p>
+                  {sup?.about && <p className="text-sm text-stone-700 mt-2 leading-relaxed">{sup.about}</p>}
+                  <p className="text-sm text-stone-700 mt-2"><b>This profile is managed by the supplier</b> — you speak with the supplier, not the helper directly. There is no contact number on this profile: use <a href="#request-callback" className="font-semibold text-deep-700 underline">Request a callback</a> (free) and the supplier will call you back.</p>
+                </div>
+              </div>
+            </section>) })()}
 
           <section className="bg-white rounded-2xl border-2 border-deep-700 p-5 shadow-card">
             <div className="flex items-baseline justify-between gap-3 flex-wrap">
@@ -180,10 +244,11 @@ export function Profile() {
               <div className="bg-cream-50 border border-amber-100 rounded-xl py-3"><p className="font-extrabold text-deep-900">{h.available.replace(/\(.*\)/, '')}</p><p className="text-[11px] text-stone-500">Can start</p></div>
             </div>
           </section>
-          <p className="text-xs text-stone-500">This full profile is free to read. Only the contact number is paid. Sample profile — fictional, for the prototype.</p>
+          <p className="text-xs text-stone-500">{h.listedBy ? 'This full profile is free to read. It is listed by a supplier — there is no number to reveal; request a free callback instead. Sample profile — fictional, for the prototype.' : 'This full profile is free to read. Only the contact number is paid. Sample profile — fictional, for the prototype.'}</p>
         </div>
 
-        <aside className="bg-white rounded-2xl border-2 border-deep-700 p-5 lg:sticky lg:top-20 shadow-card">
+        <aside id="request-callback" className="bg-white rounded-2xl border-2 border-deep-700 p-5 lg:sticky lg:top-20 shadow-card scroll-mt-24">
+          {h.listedBy ? <CallbackPanel h={h} /> : <>
           <h2 className="font-bold text-deep-950">Contact {h.name.split(' ')[0]}</h2>
           {!revealed ? <>
             <p className="mt-3 text-lg font-mono tracking-wider bg-stone-100 rounded-xl px-3 py-3 text-center">+65 •••• ••••</p>
@@ -202,6 +267,7 @@ export function Profile() {
             </div>
             <Link to="/reveals" className="block text-center mt-3 text-sm font-semibold text-deep-700 underline">Saved in My Reveals →</Link>
             <div className="mt-4 bg-cream-100 border border-amber-200 rounded-xl p-3 text-sm"><b>Next steps:</b> interview her with the free question kits, agree salary and rest days in writing, then follow the MOM steps in the <Link to="/journey" className="underline font-semibold">Hiring Journey</Link>.</div>
+          </>}
           </>}
         </aside>
       </div>

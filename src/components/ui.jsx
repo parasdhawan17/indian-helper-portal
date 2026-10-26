@@ -12,6 +12,7 @@ export function Header() {
     <NavLink to="/journey" className={link}>Hiring journey</NavLink>
     <NavLink to="/pricing" className={link}>Pricing</NavLink>
     <NavLink to="/reveals" className={link}>My Reveals</NavLink>
+    <NavLink to="/supplier" className={link}>For Suppliers</NavLink>
     <NavLink to="/join" className="px-3 py-2 rounded-lg text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600">Join as a Helper — free</NavLink>
   </>
   return (
@@ -33,7 +34,7 @@ export function Footer() {
     <footer className="bg-deep-950 text-green-100 mt-16">
       <div className="max-w-6xl mx-auto px-4 py-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4 text-sm">
         <div><p className="font-bold text-white text-base">IndianHelper SG</p><p className="mt-2 text-green-200/80">Indian helpers in Singapore, listed by themselves. Employers browse free and pay only to reveal a contact number. Helpers always list free.</p><p className="mt-3 text-green-200/80">Stay safe: never pay anyone who asks a helper for money to be listed. Report a wrong number within 7 days and the credit is restored.</p></div>
-        <div><p className="font-semibold text-white">Product</p><ul className={col}><li><Link className="hover:text-white" to="/browse">Browse helpers</Link></li><li><Link className="hover:text-white" to="/pricing">Pricing — packs in ₹, UPI</Link></li><li><Link className="hover:text-white" to="/reveals">My Reveals</Link></li><li><Link className="hover:text-white" to="/join">Join as a Helper — free</Link></li></ul></div>
+        <div><p className="font-semibold text-white">Product</p><ul className={col}><li><Link className="hover:text-white" to="/browse">Browse helpers</Link></li><li><Link className="hover:text-white" to="/pricing">Pricing — packs in ₹, UPI</Link></li><li><Link className="hover:text-white" to="/reveals">My Reveals</Link></li><li><Link className="hover:text-white" to="/join">Join as a Helper — free</Link></li><li><Link className="hover:text-white" to="/supplier">For Suppliers — list your helpers</Link></li></ul></div>
         <div><p className="font-semibold text-white">Company</p><ul className={col}><li><Link className="hover:text-white" to="/journey">About the hiring process</Link></li><li><Link className="hover:text-white" to="/terms">Terms of Use</Link></li><li><Link className="hover:text-white" to="/privacy">Privacy Policy</Link></li></ul></div>
         <div><p className="font-semibold text-white">Resources</p><ul className={col}><li><Link className="hover:text-white" to="/journey">Hiring Journey — 6 stages</Link></li><li><Link className="hover:text-white" to="/journey">Cost calculator (S$)</Link></li><li><Link className="hover:text-white" to="/journey">Transfer process tracker</Link></li><li><a className="hover:text-white" href="https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-domestic-worker" target="_blank" rel="noreferrer">MOM — Work Permit for FDW ↗</a></li></ul></div>
       </div>
@@ -73,6 +74,7 @@ export function HelperCard({ h }) {
         <p className="text-xs text-stone-500">{h.state} · In {h.location}</p>
       </div>
       <p className="text-sm font-semibold text-deep-900 -mt-1">{h.mainJob}</p>
+      {h.listedBy && <p className="-mt-1"><span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full border bg-amber-100 border-amber-300 text-amber-800">🏢 Supplier-listed · free callback</span></p>}
       <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-xs text-stone-600 -mt-1">
         <span>⭐ {h.yearsSG > 0 ? `${h.yearsSG} yrs in SG` : 'New to SG'}</span><span>·</span><span>{h.totalYears} yrs total exp.</span><span>·</span><span>✓ Confirmed {h.confirmedDays === 0 ? 'today' : `${h.confirmedDays}d ago`}</span>
         {(() => { const fs = feedbackSummary(h); return fs ? <><span>·</span><span><span className="text-amber-500">★</span> <b className="text-deep-900">{fs.avg.toFixed(1)}</b> ({fs.count} review{fs.count === 1 ? '' : 's'})</span></> : null })()}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { HELPERS } from '../data/helpers'
+import { allHelpers } from '../data/helpers'
 import { Avatar } from '../store'
 
 const publicName = (full) => {
@@ -11,7 +11,7 @@ const publicName = (full) => {
 
 export function FeedbackForm() {
   const { id } = useParams()
-  const h = HELPERS.find(x => x.id === id)
+  const h = allHelpers().find(x => x.id === id)
   const [name, setName] = useState('')
   const [area, setArea] = useState('')
   const [period, setPeriod] = useState('')

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { HELPERS, MAIN_JOBS, STATES, LANGUAGES, STATUSES, inr, feedbackSummary } from '../data/helpers'
+import { HELPERS, allHelpers, MAIN_JOBS, STATES, LANGUAGES, STATUSES, inr, feedbackSummary } from '../data/helpers'
 import { HelperCard, SectionTitle } from '../components/ui'
 
 const FAQS = [
@@ -15,7 +15,7 @@ export function Home() {
   const nav = useNavigate()
   const [q, setQ] = useState(''); const [job, setJob] = useState('')
   const [openFaq, setOpenFaq] = useState(0)
-  const featured = HELPERS.filter(h => ['manjit', 'anju', 'mary', 'pooja'].includes(h.id))
+  const featured = allHelpers().filter(h => ['manjit', 'anju', 'mary', 'pooja'].includes(h.id))
   const go = (e) => { e.preventDefault(); nav(`/browse?q=${encodeURIComponent(q)}&job=${encodeURIComponent(job)}`) }
   return (
     <main>
@@ -74,6 +74,13 @@ export function Home() {
             <Link to="/browse" className="inline-block mt-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl px-4 py-2.5 text-sm">Browse helpers</Link>
           </div>
         </div>
+        <div className="mt-4 bg-deep-950 rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-3">
+          <div className="flex-1">
+            <h3 className="font-bold text-white">🏢 For suppliers — list your helpers</h3>
+            <p className="text-sm text-green-200/80 mt-1">Add profiles of your helpers for free. Employers read them and request a callback — you pay 1 credit only when you unlock an employer's number to call them back. Helpers are never charged.</p>
+          </div>
+          <Link to="/supplier" className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl px-4 py-2.5 text-sm text-center">Supplier sign-up →</Link>
+        </div>
       </section>
 
       <section className="max-w-6xl mx-auto px-4 pb-4">
@@ -131,36 +138,39 @@ export function Browse() {
   const q = sp.get('q') || ''
   const [job, setJob] = useState(sp.get('job') || '')
   const [status, setStatus] = useState(''); const [state, setState] = useState(''); const [lang, setLang] = useState('')
+  const [listedBy, setListedBy] = useState('')
   const [maxSalary, setMaxSalary] = useState(1000); const [maxRest, setMaxRest] = useState(4); const [vegOnly, setVegOnly] = useState(false)
   const [sort, setSort] = useState('confirmed')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const list = useMemo(() => {
-    let r = HELPERS.filter(h =>
-      (!q || (h.name + h.about + h.mainJob + h.state + h.cuisines.join(' ') + h.skills.map(s => s[0]).join(' ')).toLowerCase().includes(q.toLowerCase())) &&
+    let r = allHelpers().filter(h =>
+      (!q || (h.name + h.about + h.mainJob + h.state + h.cuisines.join(' ') + h.skills.map(s => s[0]).join(' ') + ' ' + (h.listedBy ? h.listedBy.name : '')).toLowerCase().includes(q.toLowerCase())) &&
       (!job || h.mainJob === job) && (!status || h.status === status) && (!state || h.state === state) &&
+      (!listedBy || (listedBy === 'supplier' ? !!h.listedBy : !h.listedBy)) &&
       (!lang || h.languages.some(([l]) => l === lang)) && h.salary <= maxSalary && h.restDays <= maxRest && (!vegOnly || h.veg))
     if (sort === 'confirmed') r = [...r].sort((a, b) => a.confirmedDays - b.confirmedDays)
     if (sort === 'salary') r = [...r].sort((a, b) => a.salary - b.salary)
     if (sort === 'exp') r = [...r].sort((a, b) => b.yearsSG - a.yearsSG)
     return r
-  }, [q, job, status, state, lang, maxSalary, maxRest, vegOnly, sort])
+  }, [q, job, status, state, lang, listedBy, maxSalary, maxRest, vegOnly, sort])
   const sel = 'w-full border border-stone-300 rounded-xl px-3 py-2 text-sm bg-white'
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
-      <SectionTitle sub="Every profile is free to read in full. You only pay to reveal a number. Salaries are in S$ — that is what helpers in Singapore are paid.">Browse Indian helpers in Singapore</SectionTitle>
+      <SectionTitle sub="Every profile is free to read in full. On direct profiles you pay only to reveal a number; supplier-listed profiles take a free callback request instead. Salaries are in S$ — that is what helpers in Singapore are paid.">Browse Indian helpers in Singapore</SectionTitle>
       <button onClick={() => setFiltersOpen(!filtersOpen)} className="lg:hidden mb-3 w-full bg-white border border-stone-300 rounded-xl py-2.5 font-semibold text-sm" aria-expanded={filtersOpen}>🎛️ Filters &amp; sort {filtersOpen ? '▲' : '▼'}</button>
       <div className="grid lg:grid-cols-[260px_1fr] gap-6 items-start">
         <aside className={`${filtersOpen ? 'block' : 'hidden'} lg:block bg-white rounded-2xl border border-stone-200 p-4 space-y-4 lg:sticky lg:top-20`}>
           <div><label className="text-xs font-bold text-stone-500">SEARCH</label><input value={q} onChange={e => setSp(e.target.value ? { q: e.target.value } : {}, { replace: true })} placeholder="Keyword, skill, cuisine…" className={sel + ' mt-1'} /></div>
           <div><label className="text-xs font-bold text-stone-500">MAIN JOB</label><select value={job} onChange={e => setJob(e.target.value)} className={sel + ' mt-1'}><option value="">Any</option>{MAIN_JOBS.map(j => <option key={j}>{j}</option>)}</select></div>
           <div><label className="text-xs font-bold text-stone-500">STATUS</label><select value={status} onChange={e => setStatus(e.target.value)} className={sel + ' mt-1'}><option value="">Any status</option>{STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
+          <div><label className="text-xs font-bold text-stone-500">LISTED BY</label><select value={listedBy} onChange={e => setListedBy(e.target.value)} className={sel + ' mt-1'}><option value="">All</option><option value="direct">Direct helpers</option><option value="supplier">Suppliers</option></select></div>
           <div><label className="text-xs font-bold text-stone-500">STATE (INDIA)</label><select value={state} onChange={e => setState(e.target.value)} className={sel + ' mt-1'}><option value="">Any state</option>{STATES.map(s => <option key={s}>{s}</option>)}</select></div>
           <div><label className="text-xs font-bold text-stone-500">LANGUAGE</label><select value={lang} onChange={e => setLang(e.target.value)} className={sel + ' mt-1'}><option value="">Any language</option>{LANGUAGES.map(s => <option key={s}>{s}</option>)}</select></div>
           <div><label className="text-xs font-bold text-stone-500 flex justify-between"><span>MAX EXPECTED SALARY</span><span>S${maxSalary}</span></label><input type="range" min="550" max="1000" step="10" value={maxSalary} onChange={e => setMaxSalary(+e.target.value)} className="w-full accent-green-800" /></div>
           <div><label className="text-xs font-bold text-stone-500 flex justify-between"><span>MAX REST DAYS SHE EXPECTS</span><span>{maxRest}/mo</span></label><input type="range" min="1" max="4" step="1" value={maxRest} onChange={e => setMaxRest(+e.target.value)} className="w-full accent-green-800" /></div>
           <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={vegOnly} onChange={e => setVegOnly(e.target.checked)} className="w-4 h-4 accent-green-800" /> Pure-veg cooking only</label>
           <div><label className="text-xs font-bold text-stone-500">SORT BY</label><select value={sort} onChange={e => setSort(e.target.value)} className={sel + ' mt-1'}><option value="confirmed">Most recently confirmed</option><option value="salary">Salary: low to high</option><option value="exp">Most Singapore experience</option></select></div>
-          <button onClick={() => { setJob(''); setStatus(''); setState(''); setLang(''); setMaxSalary(1000); setMaxRest(4); setVegOnly(false); setSp({}) }} className="text-sm text-deep-700 font-semibold underline">Clear all filters</button>
+          <button onClick={() => { setJob(''); setStatus(''); setState(''); setLang(''); setListedBy(''); setMaxSalary(1000); setMaxRest(4); setVegOnly(false); setSp({}) }} className="text-sm text-deep-700 font-semibold underline">Clear all filters</button>
         </aside>
         <div>
           <p className="text-sm text-stone-500 mb-3">{list.length} helper{list.length !== 1 ? 's' : ''} found</p>
