@@ -10,6 +10,24 @@ export const StarRow = ({ n, className = 'text-base' }) => (
   </span>
 )
 
+// Feedback category ratings — keys match the feedback form and seed data.
+export const FB_CAT_LABELS = [['cooking', 'Cooking'], ['cleaning', 'Cleaning & housekeeping'], ['care', 'Children / elderly care'], ['reliability', 'Reliability & honesty'], ['communication', 'Communication']]
+const FB_CAT_SHORT = { cooking: 'Cooking', cleaning: 'Cleaning', care: 'Care', reliability: 'Reliability', communication: 'Communication' }
+// Average each category across the entries that have category ratings.
+export const feedbackCatAverages = (list) => {
+  const withCats = (list || []).filter(f => f.cats)
+  if (!withCats.length) return null
+  return FB_CAT_LABELS.map(([k, label]) => {
+    const vals = withCats.map(f => f.cats[k]).filter(v => typeof v === 'number')
+    return vals.length ? { key: k, label, avg: vals.reduce((a, b) => a + b, 0) / vals.length } : null
+  }).filter(Boolean)
+}
+const CatDots = ({ v }) => (
+  <span className="tracking-[0.15em]" aria-label={`${v} out of 5`}>
+    {[1, 2, 3, 4, 5].map(i => <span key={i} className={i <= v ? 'text-amber-500' : 'text-stone-300'}>●</span>)}
+  </span>
+)
+
 function HelperPhoto({ h }) {
   const [err, setErr] = useState(false)
   const initials = h.name.replace('.', '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -55,6 +73,7 @@ function AskFeedbackModal({ h, onClose }) {
           <button onClick={onClose} aria-label="Close" className="text-stone-400 hover:text-stone-700 text-xl leading-none">✕</button>
         </div>
         <p className="text-sm text-stone-600 mt-2">{first} can send this personal link to any employer she has worked for. Their feedback appears on this profile under “Feedback from employers”. <b>Feedback is free for both sides</b> — nobody pays anything for it.</p>
+        <p className="text-sm text-stone-600 mt-2">Employers can also leave their number as a reference; it is only shown to employers who reveal your number.</p>
         <p className="text-xs font-semibold text-stone-500 mt-4 mb-1">{first}’s feedback link</p>
         <div className="flex gap-2">
           <input readOnly value={link} onFocus={e => e.target.select()} className="flex-1 min-w-0 text-xs bg-stone-100 border border-stone-200 rounded-lg px-2.5 py-2 font-mono" />
@@ -227,11 +246,69 @@ export function Profile() {
               </div>
               <button onClick={() => setShowAsk(true)} className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl px-4 py-2.5">✉️ Ask for feedback</button>
             </div>
+            {(() => { const catAvgs = feedbackCatAverages(fb); return catAvgs && (
+              <div className="mt-4 bg-cream-50 border border-amber-100 rounded-2xl p-4">
+                <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">How employers rate her work</p>
+                <div className="mt-2.5 space-y-1.5">
+                  {catAvgs.map(c => (
+                    <div key={c.key} className="flex items-center gap-3 text-sm">
+                      <span className="w-48 shrink-0 text-stone-600">{c.label}</span>
+                      <span className="flex-1 h-2 rounded-full bg-stone-200 overflow-hidden"><span className="block h-full bg-amber-500 rounded-full" style={{ width: `${(c.avg / 5) * 100}%` }} /></span>
+                      <span className="font-bold text-deep-900 w-14 shrink-0 text-right">★ {c.avg.toFixed(1)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>) })()}
             {fb.length > 0 ? <div className="space-y-3 mt-4">{fb.map((f, i) => (
               <article key={i} className="bg-cream-50 border border-amber-100 rounded-2xl p-4">
-                <div className="flex items-center gap-2 flex-wrap"><StarRow n={f.rating} />{f.recommend && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-100 border border-green-300 text-green-800">👍 Would recommend</span>}<span className="text-xs text-stone-400 ml-auto">{f.date}</span></div>
-                <p className="text-sm text-stone-700 leading-relaxed mt-2">“{f.text}”</p>
-                <p className="text-xs text-stone-500 mt-2"><b className="text-deep-900">{f.employer}</b> · Employed her {f.period}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <StarRow n={f.rating} />
+                  {f.recommend && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-100 border border-green-300 text-green-800">👍 Would recommend</span>}
+                  {f.rehire && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-100 border border-green-300 text-green-800">Would hire again ✓</span>}
+                  <span className="text-xs text-stone-400 ml-auto">{f.date}</span>
+                </div>
+                <p className="text-xs text-stone-500 mt-1.5"><b className="text-deep-900">{f.employer}</b> · Employed her {f.period}</p>
+                {f.cats && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 mt-3 bg-white/70 border border-amber-100 rounded-xl px-3 py-2.5">
+                    {FB_CAT_LABELS.map(([k]) => typeof f.cats[k] === 'number' ? (
+                      <p key={k} className="text-xs text-stone-600 flex items-center justify-between gap-2"><span>{FB_CAT_SHORT[k]}</span><CatDots v={f.cats[k]} /></p>
+                    ) : null)}
+                  </div>
+                )}
+                {f.strengths && f.strengths.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-[11px] font-bold tracking-wide text-green-800 uppercase">Strengths</p>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {f.strengths.map(s => <span key={s} className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-100 border border-green-300 text-green-900">{s}</span>)}
+                    </div>
+                  </div>
+                )}
+                {((f.improvements && f.improvements.length > 0) || f.improveText) && (
+                  <div className="mt-3">
+                    <p className="text-[11px] font-bold tracking-wide text-amber-800 uppercase">Areas to improve</p>
+                    {f.improvements && f.improvements.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {f.improvements.map(s => <span key={s} className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900">{s}</span>)}
+                      </div>
+                    )}
+                    {f.improveText && <p className="text-xs italic text-stone-600 mt-1.5">“{f.improveText}”</p>}
+                  </div>
+                )}
+                <p className="text-sm text-stone-700 leading-relaxed mt-3">“{f.text}”</p>
+                {f.refPhone && (h.listedBy ? (
+                  <div className="mt-3 bg-stone-100 border border-stone-200 rounded-xl px-3 py-2.5 text-xs text-stone-600">🔒 <b>Employer reference number hidden.</b> Reference numbers are shared with employers who connect with her through this portal.</div>
+                ) : revealed ? (
+                  <div className="mt-3 bg-green-50 border border-green-200 rounded-xl px-3 py-2.5 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-deep-900">📞 Reference — {f.employer.split(' · ')[0]}:</span>
+                    <span className="font-mono font-bold text-sm text-deep-900">{f.refPhone}</span>
+                    <span className="ml-auto flex gap-2">
+                      <a href={`tel:${f.refPhone.replace(/\s/g, '')}`} className="bg-deep-800 text-white text-xs font-semibold rounded-lg px-2.5 py-1.5">📞 Call</a>
+                      <a href={`https://wa.me/${f.refPhone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="bg-green-600 text-white text-xs font-semibold rounded-lg px-2.5 py-1.5">💬 WhatsApp</a>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-3 bg-stone-100 border border-stone-200 rounded-xl px-3 py-2.5 text-xs text-stone-600">📞 Employer reference: <span className="font-mono font-semibold">+65 •••• {f.refPhone.replace(/\D/g, '').slice(-2)}</span> — reveal {first}’s number to see her references’ numbers</div>
+                ))}
               </article>))}
             </div> : <p className="text-sm text-stone-600 mt-3 bg-cream-50 border border-amber-100 rounded-xl p-3">No employer feedback yet — {first} is new here. Employers who have worked with her can add feedback free with her personal link.</p>}
             <div className="mt-4 bg-green-50 border border-green-200 rounded-xl p-3.5 text-sm text-stone-700">
