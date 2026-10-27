@@ -1,7 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter, Routes, Route, ScrollRestoration } from 'react-router-dom'
-import { StoreProvider, PackModal } from './store'
+import { StoreProvider, PackModal, SubCheckoutModal } from './store'
 import { Header, Footer } from './components/ui'
 import { Home, Browse } from './pages/HomeBrowse'
 import { Profile, Pricing, MyReveals } from './pages/ProfilePricing'
@@ -45,6 +45,7 @@ function App() {
           <Footer />
         </div>
         <PackModal />
+        <SubCheckoutModal />
       </HashRouter>
     </StoreProvider>
   )

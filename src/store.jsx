@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { PACKS, inr, phoneFor } from './data/helpers'
+import { PACKS, inr, phoneFor, SUPPLIER_PLAN, loadSupplierSub, saveSupplierSub } from './data/helpers'
 
 const Ctx = createContext(null)
 export const useStore = () => useContext(Ctx)
@@ -7,21 +7,32 @@ const load = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSO
 
 export function StoreProvider({ children }) {
   const [credits, setCredits] = useState(() => load('ihsg_credits', 0))
-  const [supplierCredits, setSupplierCredits] = useState(() => load('ihp_supplier_credits', 0))
   const [reveals, setReveals] = useState(() => load('ihsg_reveals', [])) // [{id, date, restored}]
-  const [packModal, setPackModal] = useState(null) // null | {after: helperId|null, forSupplier?: bool}
+  const [packModal, setPackModal] = useState(null) // null | {after: helperId|null}
+  // Supplier subscription (Supplier Monthly). Written to localStorage
+  // synchronously so the visibility gating in data/helpers.js — which reads
+  // localStorage at render time — is always consistent with this state.
+  const [supplierSub, setSupplierSubState] = useState(() => loadSupplierSub())
+  const [subModal, setSubModal] = useState(false)
   useEffect(() => { localStorage.setItem('ihsg_credits', JSON.stringify(credits)) }, [credits])
-  useEffect(() => { localStorage.setItem('ihp_supplier_credits', JSON.stringify(supplierCredits)) }, [supplierCredits])
   useEffect(() => { localStorage.setItem('ihsg_reveals', JSON.stringify(reveals)) }, [reveals])
   const isRevealed = (id) => reveals.some(r => r.id === id && !r.restored)
   const buyPack = (pack) => { setCredits(c => c + pack.credits) }
-  const buySupplierPack = (pack) => { setSupplierCredits(c => c + pack.credits) }
-  // Supplier pays 1 credit to unlock one employer's number. Opens the UPI pack
-  // modal (supplier mode) when the supplier balance is empty.
-  const spendSupplierCredit = () => {
-    if (supplierCredits < 1) { setPackModal({ after: 'unlock', forSupplier: true }); return false }
-    setSupplierCredits(c => c - 1)
-    return true
+  const setSupplierSub = (sub) => { saveSupplierSub(sub); setSupplierSubState(sub) }
+  const supplierSubIsActive = !!supplierSub && supplierSub.status === 'active' && new Date(supplierSub.currentPeriodEnd).getTime() > Date.now()
+  // Paying the monthly fee: a lapsed/new subscription starts a fresh 30 days
+  // today; renewing early extends 30 days from the current period end.
+  const activateSupplierSub = () => {
+    const now = new Date()
+    const base = supplierSubIsActive ? new Date(supplierSub.currentPeriodEnd) : now
+    const end = new Date(base); end.setDate(end.getDate() + SUPPLIER_PLAN.days)
+    setSupplierSub({ status: 'active', planPrice: SUPPLIER_PLAN.price, startedAt: supplierSub?.startedAt || now.toISOString(), currentPeriodEnd: end.toISOString(), autoRenew: true })
+  }
+  // Prototype-only demo control: pretend the paid month has just run out.
+  const simulateSupplierLapse = () => {
+    if (!supplierSub) return
+    const y = new Date(); y.setDate(y.getDate() - 1)
+    setSupplierSub({ ...supplierSub, status: 'lapsed', currentPeriodEnd: y.toISOString() })
   }
   const reveal = (helper) => {
     if (isRevealed(helper.id)) return true
@@ -31,7 +42,7 @@ export function StoreProvider({ children }) {
     return true
   }
   const restoreCredit = (id) => { setReveals(r => r.map(x => x.id === id ? { ...x, restored: true } : x)); setCredits(c => c + 1) }
-  return <Ctx.Provider value={{ credits, reveals, isRevealed, reveal, buyPack, restoreCredit, packModal, setPackModal, supplierCredits, buySupplierPack, spendSupplierCredit }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ credits, reveals, isRevealed, reveal, buyPack, restoreCredit, packModal, setPackModal, supplierSub, supplierSubIsActive, subModal, setSubModal, activateSupplierSub, simulateSupplierLapse }}>{children}</Ctx.Provider>
 }
 
 export function Avatar({ h, size = 64, variant = 'circle' }) {
@@ -47,42 +58,35 @@ export const StatusBadge = ({ s }) => {
 }
 
 export function PackModal() {
-  const { packModal, setPackModal, buyPack, credits, supplierCredits, buySupplierPack } = useStore()
+  const { packModal, setPackModal, buyPack, credits } = useStore()
   const [pack, setPack] = useState(PACKS[1])
   const [step, setStep] = useState('pick') // pick | pay | verifying | done
   const [upiId, setUpiId] = useState('')
   if (!packModal) return null
-  const forSupplier = !!packModal.forSupplier
-  const balance = forSupplier ? supplierCredits : credits
-  const packName = (p) => forSupplier ? p.name.replace('Reveal', 'credit') : p.name
   const close = () => { setPackModal(null); setStep('pick'); setUpiId('') }
-  const pay = () => { setStep('verifying'); setTimeout(() => { (forSupplier ? buySupplierPack : buyPack)(pack); setStep('done') }, 900) }
+  const pay = () => { setStep('verifying'); setTimeout(() => { buyPack(pack); setStep('done') }, 900) }
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label="Buy credits with UPI">
       <div className="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 max-h-[92vh] overflow-y-auto">
         <div className="flex items-start justify-between">
-          <h3 className="font-bold text-lg text-deep-900">{step === 'pick' ? (forSupplier ? 'Buy callback credits' : 'Buy reveal credits') : step === 'done' ? 'Payment successful' : 'Pay with UPI'}</h3>
+          <h3 className="font-bold text-lg text-deep-900">{step === 'pick' ? 'Buy reveal credits' : step === 'done' ? 'Payment successful' : 'Pay with UPI'}</h3>
           <button onClick={close} className="text-stone-500 text-xl leading-none px-2" aria-label="Close">×</button>
         </div>
         {step === 'pick' && <>
-          {forSupplier
-            ? <p className="text-sm text-stone-600 mt-1">You have {balance} supplier credit{balance === 1 ? '' : 's'}. 1 credit unlocks 1 employer's number from a callback request, so you can call them back. Listing profiles is free — credits are spent only on unlocks. Prices are in Indian rupees (₹), paid by UPI.</p>
-            : <p className="text-sm text-stone-600 mt-1">You have {balance} credit{balance === 1 ? '' : 's'}. 1 credit reveals 1 helper's contact number, forever for your account. Prices are in Indian rupees (₹), paid by UPI.</p>}
+          <p className="text-sm text-stone-600 mt-1">You have {credits} credit{credits === 1 ? '' : 's'}. 1 credit reveals 1 helper's contact number, forever for your account. Prices are in Indian rupees (₹), paid by UPI.</p>
           <div className="space-y-2 mt-4">
             {PACKS.map(p => (
               <button key={p.id} onClick={() => setPack(p)} className={`w-full text-left border rounded-xl p-3 flex justify-between items-center ${pack.id === p.id ? 'border-deep-700 bg-green-50 ring-1 ring-deep-700' : 'border-stone-200'}`}>
-                <span><span className="font-semibold block">{packName(p)} {p.hero && <span className="text-[11px] bg-amber-500 text-white px-2 py-0.5 rounded-full ml-1">Most chosen</span>}</span><span className="text-xs text-stone-500">{inr(p.per)} per {forSupplier ? 'unlock' : 'reveal'}</span></span>
+                <span><span className="font-semibold block">{p.name} {p.hero && <span className="text-[11px] bg-amber-500 text-white px-2 py-0.5 rounded-full ml-1">Most chosen</span>}</span><span className="text-xs text-stone-500">{inr(p.per)} per reveal</span></span>
                 <span className="font-bold text-deep-800">{inr(p.price)}</span>
               </button>
             ))}
           </div>
           <button onClick={() => setStep('pay')} className="mt-4 w-full bg-deep-800 hover:bg-deep-900 text-white font-semibold rounded-xl py-3">Continue to UPI payment · {inr(pack.price)}</button>
-          {forSupplier
-            ? <p className="text-xs text-stone-500 mt-2">Credits are spent only when you unlock an employer's number — never for listing a profile. Helpers never pay anything on this portal.</p>
-            : <p className="text-xs text-stone-500 mt-2">Invalid-number guarantee: if a revealed number is wrong or belongs to someone else, report it within 7 days and the credit is restored. Helpers never pay anything on this portal.</p>}
+          <p className="text-xs text-stone-500 mt-2">Invalid-number guarantee: if a revealed number is wrong or belongs to someone else, report it within 7 days and the credit is restored. Helpers never pay anything on this portal.</p>
         </>}
         {step === 'pay' && <>
-          <p className="text-sm text-stone-600 mt-1">{packName(pack)} — <b>{inr(pack.price)}</b> for {pack.credits} {forSupplier ? 'callback' : 'reveal'} credit{pack.credits > 1 ? 's' : ''}. Pay by any UPI app:</p>
+          <p className="text-sm text-stone-600 mt-1">{pack.name} — <b>{inr(pack.price)}</b> for {pack.credits} reveal credit{pack.credits > 1 ? 's' : ''}. Pay by any UPI app:</p>
           <div className="flex gap-2 mt-3 flex-wrap">
             {['Google Pay', 'PhonePe', 'Paytm', 'BHIM UPI'].map(a => <span key={a} className="text-xs font-bold border border-stone-300 bg-stone-50 rounded-lg px-3 py-1.5">{a}</span>)}
           </div>
@@ -102,7 +106,59 @@ export function PackModal() {
         {step === 'done' && <>
           <div className="text-center py-4"><div className="text-4xl" aria-hidden="true">✅</div><p className="mt-2 text-sm text-stone-700"><b>{pack.credits} credit{pack.credits > 1 ? 's' : ''} added.</b> This was a mock UPI checkout — no money moved.</p></div>
           <button onClick={close} className="w-full bg-deep-800 hover:bg-deep-900 text-white font-semibold rounded-xl py-3">Continue</button>
-          {packModal.after && <p className="text-xs text-stone-500 mt-2 text-center">{forSupplier ? 'Now tap “Unlock number · 1 credit” again on the callback request to use 1 credit.' : 'Now tap “Reveal her number” again on the profile to use 1 credit.'}</p>}
+          {packModal.after && <p className="text-xs text-stone-500 mt-2 text-center">Now tap “Reveal her number” again on the profile to use 1 credit.</p>}
+        </>}
+      </div>
+    </div>
+  )
+}
+
+// Monthly subscription checkout for suppliers (Supplier Monthly, ₹999/month).
+// Same mock UPI pattern as PackModal: no real payment; "I've paid" activates
+// (or extends) the subscription by 30 days.
+export function SubCheckoutModal() {
+  const { subModal, setSubModal, activateSupplierSub, supplierSub, supplierSubIsActive } = useStore()
+  const [step, setStep] = useState('pay') // pay | verifying | done
+  const [upiId, setUpiId] = useState('')
+  if (!subModal) return null
+  const close = () => { setSubModal(false); setStep('pay'); setUpiId('') }
+  const pay = () => { setStep('verifying'); setTimeout(() => { activateSupplierSub(); setStep('done') }, 900) }
+  const fmt = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label="Pay Supplier Monthly with UPI">
+      <div className="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 max-h-[92vh] overflow-y-auto">
+        <div className="flex items-start justify-between">
+          <h3 className="font-bold text-lg text-deep-900">{step === 'done' ? 'Subscription active' : 'Supplier Monthly · ' + inr(SUPPLIER_PLAN.price) + '/month'}</h3>
+          <button onClick={close} className="text-stone-500 text-xl leading-none px-2" aria-label="Close">×</button>
+        </div>
+        {step === 'pay' && <>
+          <ul className="text-sm text-stone-600 mt-2 space-y-1.5">
+            <li>✓ Unlimited active helper profiles, listed in search</li>
+            <li>✓ Unlimited callback requests &amp; employer-number unlocks while active</li>
+            <li>✓ Profiles pause automatically if the month lapses — renew anytime to reactivate</li>
+          </ul>
+          {supplierSubIsActive
+            ? <p className="text-sm text-stone-600 mt-3 bg-green-50 border border-green-200 rounded-xl px-3 py-2">Your plan is active until <b>{fmt(supplierSub.currentPeriodEnd)}</b>. Paying now renews early and extends it by 30 days, to <b>{fmt(new Date(new Date(supplierSub.currentPeriodEnd).getTime() + SUPPLIER_PLAN.days * 86400000))}</b>.</p>
+            : <p className="text-sm text-stone-600 mt-3">Paying activates your profiles for <b>30 days from today</b>. It renews monthly via UPI AutoPay; cancel anytime.</p>}
+          <div className="flex gap-2 mt-3 flex-wrap">
+            {['Google Pay', 'PhonePe', 'Paytm', 'BHIM UPI'].map(a => <span key={a} className="text-xs font-bold border border-stone-300 bg-stone-50 rounded-lg px-3 py-1.5">{a}</span>)}
+          </div>
+          <div className="mt-4 border-2 border-dashed border-stone-300 rounded-xl p-4 flex items-center gap-4">
+            <div className="w-24 h-24 shrink-0 bg-stone-900 rounded-lg grid grid-cols-4 grid-rows-4 gap-0.5 p-1.5" aria-hidden="true">
+              {Array.from({ length: 16 }).map((_, i) => <div key={i} className={`${[0, 1, 4, 3, 12, 15].includes(i) ? 'bg-white' : 'bg-stone-700'} rounded-[2px]`} />)}
+            </div>
+            <div className="text-sm"><b>Scan to pay {inr(SUPPLIER_PLAN.price)}</b><p className="text-stone-500 text-xs mt-1">Prototype QR placeholder — no real payment is taken. Merchant UPI ID:</p><p className="font-mono text-xs mt-1 bg-stone-100 rounded px-2 py-1 inline-block">indianhelpersg@upi</p></div>
+          </div>
+          <label className="block text-sm font-medium mt-4">Your UPI ID (for the mock verification)
+            <input value={upiId} onChange={e => setUpiId(e.target.value)} placeholder="yourname@okbank" className="mt-1 w-full border border-stone-300 rounded-xl px-3 py-2.5" />
+          </label>
+          <button onClick={pay} className="mt-4 w-full bg-deep-800 hover:bg-deep-900 text-white font-semibold rounded-xl py-3">I've paid — {supplierSubIsActive ? 'extend my plan' : 'activate for 30 days'} · {inr(SUPPLIER_PLAN.price)}</button>
+          <p className="text-xs text-stone-500 mt-2">Renews monthly via UPI AutoPay; cancel anytime. Helpers never pay anything on this portal — this subscription is the supplier's business cost.</p>
+        </>}
+        {step === 'verifying' && <div className="py-10 text-center"><div className="animate-pulse text-4xl" aria-hidden="true">⏳</div><p className="mt-3 text-sm text-stone-600">Verifying your UPI payment… (mock)</p></div>}
+        {step === 'done' && <>
+          <div className="text-center py-4"><div className="text-4xl" aria-hidden="true">✅</div><p className="mt-2 text-sm text-stone-700"><b>Your profiles are active until {supplierSub ? fmt(supplierSub.currentPeriodEnd) : ''}.</b> This was a mock UPI checkout — no money moved.</p></div>
+          <button onClick={close} className="w-full bg-deep-800 hover:bg-deep-900 text-white font-semibold rounded-xl py-3">Continue</button>
         </>}
       </div>
     </div>

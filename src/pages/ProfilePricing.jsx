@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { HELPERS, allHelpers, phoneFor, sgd, inr, feedbackFor, feedbackSummary, supplierById, loadCallbacks, addCallback } from '../data/helpers'
+import { HELPERS, allHelpers, phoneFor, sgd, inr, feedbackFor, feedbackSummary, supplierById, loadCallbacks, addCallback, isProfileActive } from '../data/helpers'
 import { useStore, Avatar, StatusBadge } from '../store'
 import { SectionTitle } from '../components/ui'
 
@@ -114,7 +114,7 @@ function CallbackPanel({ h }) {
         <label className="block text-sm font-medium">Short message <span className="text-stone-400 font-normal">(optional)</span><textarea rows={3} className={input} value={form.message} onChange={e => set('message', e.target.value)} placeholder={`e.g. We are looking for ${first} to help with…`} /></label>
         <button className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl py-3">Request a callback — free</button>
       </form>
-      <p className="text-xs text-stone-500 mt-3">How it works: your number stays hidden from the supplier until they choose to unlock it (they pay 1 credit — you pay nothing). They then call you back directly.</p>
+      <p className="text-xs text-stone-500 mt-3">How it works: your number stays hidden from the supplier until they choose to unlock it (unlocking is included in the supplier's monthly plan — you pay nothing). They then call you back directly.</p>
     </>
   )
 }
@@ -126,6 +126,14 @@ export function Profile() {
   const [msg, setMsg] = useState('')
   const [showAsk, setShowAsk] = useState(false)
   if (!h) return <main className="max-w-3xl mx-auto px-4 py-16 text-center"><p className="font-bold">Profile not found.</p><Link to="/browse" className="text-deep-700 underline">Back to browse</Link></main>
+  if (!isProfileActive(h)) return (
+    <main className="max-w-3xl mx-auto px-4 py-16 text-center">
+      <p className="text-4xl" aria-hidden="true">⏸️</p>
+      <h1 className="text-xl font-extrabold text-deep-950 mt-3">This profile is currently inactive.</h1>
+      <p className="text-stone-600 mt-2 max-w-md mx-auto">This supplier-listed profile isn't active right now, so it doesn't appear in search and can't take callback requests. Please check back later — or browse other helpers who are available now.</p>
+      <Link to="/browse" className="inline-block mt-5 bg-deep-800 hover:bg-deep-900 text-white font-semibold rounded-xl px-5 py-3">Browse active helpers →</Link>
+    </main>
+  )
   const revealed = isRevealed(h.id)
   const phone = phoneFor(h)
   const doReveal = () => {
@@ -285,8 +293,9 @@ export function Pricing() {
   ]
   return (
     <main className="max-w-6xl mx-auto px-4 py-10">
-      <div className="text-center max-w-2xl mx-auto"><SectionTitle sub="One-time packs — not a subscription. Priced in Indian rupees (₹) and paid by UPI: Google Pay, PhonePe, Paytm or any UPI app.">Pay only to reveal a number</SectionTitle></div>
+      <div className="text-center max-w-2xl mx-auto"><SectionTitle sub="For employers: one-time packs — not a subscription. Priced in Indian rupees (₹) and paid by UPI: Google Pay, PhonePe, Paytm or any UPI app. Suppliers pay differently — a monthly plan, below.">Pay only to reveal a number</SectionTitle></div>
       <p className="text-center text-sm text-stone-500 -mt-3 mb-6">Your balance: <b>{credits} credit{credits === 1 ? '' : 's'}</b> · Browsing and reading full profiles is always free.</p>
+      <p className="text-center text-xs font-bold tracking-widest text-stone-400 mb-4">FOR EMPLOYERS — REVEAL PACKS</p>
       <div className="grid md:grid-cols-3 gap-4 items-stretch max-w-4xl mx-auto">
         {tiers.map(t => (
           <div key={t.name} className={`relative bg-white rounded-2xl p-6 flex flex-col ${t.popular ? 'border-2 border-deep-700 shadow-card md:-my-2 md:py-8' : 'border border-stone-200'}`}>
@@ -298,6 +307,23 @@ export function Pricing() {
             <button onClick={() => setPackModal({ after: null })} className={`mt-5 w-full font-semibold rounded-xl py-3 ${t.popular ? 'bg-deep-800 text-white hover:bg-deep-900' : 'bg-cream-100 border border-amber-300 text-deep-900 hover:bg-cream-200'}`}>Buy with UPI</button>
           </div>
         ))}
+      </div>
+      <div className="max-w-4xl mx-auto mt-12">
+        <p className="text-center text-xs font-bold tracking-widest text-stone-400">FOR SUPPLIERS</p>
+        <div className="mt-3 bg-deep-950 rounded-2xl p-6 text-white flex flex-col md:flex-row gap-5 md:items-center">
+          <div className="flex-1">
+            <h3 className="font-extrabold text-lg">Supplier Monthly</h3>
+            <p className="mt-1"><span className="text-3xl font-extrabold">{inr(999)}</span><span className="text-green-200/80">/month</span></p>
+            <ul className="mt-3 space-y-1.5 text-sm text-green-100/90">
+              <li>✓ Unlimited active helper profiles, listed in search</li>
+              <li>✓ Unlimited callback requests &amp; employer-number unlocks while active</li>
+              <li>✓ Paid by UPI AutoPay — renews monthly, cancel anytime</li>
+              <li>✓ If the month lapses, profiles pause (hidden) until you renew — nothing is deleted</li>
+            </ul>
+            <p className="text-xs text-green-200/60 mt-3">Listing profiles is free; the subscription is what keeps them active. Helpers never pay anything.</p>
+          </div>
+          <Link to="/supplier" className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl px-5 py-3 text-center">Start as a supplier →</Link>
+        </div>
       </div>
       <div className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto mt-10">
         <div className="bg-green-50 border border-green-200 rounded-2xl p-5"><h3 className="font-bold text-deep-900">🛡️ The invalid-number guarantee</h3><p className="text-sm text-stone-700 mt-2">If a revealed number is wrong, disconnected, belongs to someone else, or the “helper” turns out not to be a helper, report it within <b>7 days</b> from My Reveals. Once checked, your <b>credit is restored</b> — automatically, no email argument. There is no refund for “she didn’t reply” or “we hired someone else” — we say that before you pay, not after.</p></div>

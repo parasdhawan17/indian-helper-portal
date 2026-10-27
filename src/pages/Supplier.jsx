@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { allHelpers, loadCallbacks, updateCallback, loadSavedSupplier, maskPhone, inr, sgd, STATES, MAIN_JOBS, STATUSES } from '../data/helpers'
+import { allHelpers, loadCallbacks, updateCallback, loadSavedSupplier, maskPhone, inr, sgd, STATES, MAIN_JOBS, STATUSES, SUPPLIER_PLAN, isProfileActive } from '../data/helpers'
 import { useStore, Avatar, StatusBadge } from '../store'
 import { SectionTitle } from '../components/ui'
 
@@ -32,12 +32,12 @@ export function SupplierLanding() {
   }
   return (
     <main className="max-w-4xl mx-auto px-4 py-10">
-      <SectionTitle sub="List your helpers. Employers request a callback — you pay 1 credit only when you want the employer's number to call them back.">For suppliers</SectionTitle>
+      <SectionTitle sub="List your helpers free. A monthly subscription of ₹999 keeps their profiles active — employers request callbacks, and you unlock their numbers at no extra charge while your plan is active.">For suppliers</SectionTitle>
 
       <div className="grid md:grid-cols-3 gap-3 mb-8">
-        {[['1 · List helpers free', 'Add profiles of your helpers — full skills, languages, cooking, salary and availability. Listing costs nothing, and helpers are never charged.'],
-           ['2 · Employers request a callback', 'An employer who likes a profile sends a free callback request. You see the request with their number hidden.'],
-           ['3 · Unlock a number for 1 credit', 'Spend 1 credit (packs in ₹, paid by UPI) to see the employer\u2019s number and call them back. No credit, no charge — you choose which requests are worth it.']].map(([t, d]) => (
+        {[['1 · Sign up & add profiles — free', 'Add profiles of your helpers — full skills, languages, cooking, salary and availability. Listing costs nothing, and helpers are never charged.'],
+           ['2 · Pay ₹999/month to keep them active', 'One monthly subscription (UPI AutoPay, cancel anytime) keeps your helper profiles active and visible in search — no limit on how many. If the month lapses, profiles pause — hidden, not deleted — until you renew.'],
+           ['3 · Unlock callback numbers free', 'An employer who likes a profile sends a free callback request. While your plan is active, unlock their number at no extra charge and call them back. No per-request fees, ever.']].map(([t, d]) => (
           <div key={t} className="bg-white rounded-2xl border border-stone-200 p-4"><h3 className="font-bold text-deep-900 text-sm">{t}</h3><p className="text-sm text-stone-600 mt-1.5 leading-relaxed">{d}</p></div>
         ))}
       </div>
@@ -48,7 +48,7 @@ export function SupplierLanding() {
           <h2 className="font-extrabold text-deep-950 text-lg mt-2">You are signed up as {sup.business}</h2>
           <p className="text-sm text-stone-600 mt-1">{sup.name} · {sup.base}</p>
           <Link to="/supplier/dashboard" className="inline-block mt-4 bg-deep-800 hover:bg-deep-900 text-white font-semibold rounded-xl px-5 py-3">Go to my dashboard →</Link>
-          <p className="mt-3"><button onClick={() => { try { localStorage.removeItem('ihp_supplier') } catch {}; setSup(null) }} className="text-xs text-stone-500 underline">Not you? Reset the demo supplier on this device</button></p>
+          <p className="mt-3"><button onClick={() => { try { localStorage.removeItem('ihp_supplier'); localStorage.removeItem('ihp_supplier_sub') } catch {}; setSup(null) }} className="text-xs text-stone-500 underline">Not you? Reset the demo supplier on this device</button></p>
         </div>
       ) : (
         <form onSubmit={submit} className="bg-white border border-stone-200 rounded-2xl p-5 space-y-4" noValidate>
@@ -61,7 +61,7 @@ export function SupplierLanding() {
             <label className="block text-sm font-medium sm:col-span-2">About your business <span className="text-stone-400 font-normal">(shown on your helpers' profiles)</span><textarea rows={3} className={inputCls} value={f.about} onChange={e => set('about', e.target.value)} placeholder="What kind of helpers do you list, where from, and how do you prepare them?" /></label>
           </div>
           <button className="w-full bg-deep-800 hover:bg-deep-900 text-white font-bold rounded-xl py-3.5">Create my supplier account — free</button>
-          <p className="text-xs text-stone-500 text-center">No sign-up fee and no listing fee. You only ever pay to unlock an employer's number, in ₹ by UPI. Prototype — your details stay in this browser.</p>
+          <p className="text-xs text-stone-500 text-center">No sign-up fee and no listing fee. A Supplier Monthly subscription (₹999/month, paid by UPI) is what keeps your profiles active — you will be guided to it in your dashboard. Prototype — your details stay in this browser.</p>
         </form>
       )}
     </main>
@@ -71,16 +71,20 @@ export function SupplierLanding() {
 // ------------------------------------------------------------------- dashboard
 export function SupplierDashboard() {
   const supplier = loadSavedSupplier()
-  const { supplierCredits, setPackModal, spendSupplierCredit } = useStore()
+  const { supplierSub, supplierSubIsActive, setSubModal, simulateSupplierLapse } = useStore()
   const [cbs, setCbs] = useState(() => supplier ? myCallbacks(supplier.id) : [])
   if (!supplier) return <Navigate to="/supplier" replace />
   const profiles = myProfiles(supplier.id)
+  const activeProfiles = profiles.filter(h => isProfileActive(h))
   const unlockedCount = cbs.filter(c => c.unlocked).length
   const helperName = (id) => { const h = allHelpers().find(x => x.id === id); return h ? h.name : 'A helper' }
   const unlock = (cb) => {
-    if (cb.unlocked) return
-    if (spendSupplierCredit()) { updateCallback(cb.id, { unlocked: true }); setCbs(myCallbacks(supplier.id)) }
+    if (cb.unlocked || !supplierSubIsActive) return
+    updateCallback(cb.id, { unlocked: true }); setCbs(myCallbacks(supplier.id))
   }
+  const subStatus = supplierSubIsActive ? 'active' : (supplierSub && supplierSub.status === 'lapsed' ? 'lapsed' : (supplierSub ? 'lapsed' : 'none'))
+  const daysLeft = supplierSub ? Math.max(0, Math.ceil((new Date(supplierSub.currentPeriodEnd).getTime() - Date.now()) / 86400000)) : 0
+  const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
   return (
     <main className="max-w-5xl mx-auto px-4 py-10">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -88,14 +92,30 @@ export function SupplierDashboard() {
           <h1 className="text-2xl font-extrabold text-deep-950">{supplier.business}</h1>
           <p className="text-sm text-stone-500 mt-0.5">{supplier.name} · {supplier.base} · Supplier dashboard</p>
         </div>
-        <div className="bg-white border-2 border-deep-700 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-card">
-          <div><p className="text-[11px] font-bold text-stone-500">SUPPLIER CREDITS</p><p className="font-extrabold text-deep-900 text-lg leading-none mt-0.5">🎟️ {supplierCredits} credit{supplierCredits === 1 ? '' : 's'}</p></div>
-          <button onClick={() => setPackModal({ forSupplier: true, after: null })} className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl px-3.5 py-2.5">Buy credits · UPI</button>
-        </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mt-6">
-        {[['Profiles listed', profiles.length], ['Callback requests', cbs.length], ['Numbers unlocked', unlockedCount]].map(([l, n]) => (
+      <section id="supplier-subscription" className="mt-6 bg-white border-2 border-deep-700 rounded-2xl p-5 shadow-card scroll-mt-24">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="font-extrabold text-deep-950 text-lg flex items-center gap-2.5">Supplier Monthly
+              {subStatus === 'active' && <span className="text-[11px] font-bold px-2.5 py-1 rounded-full border bg-green-100 border-green-300 text-green-800">● Active</span>}
+              {subStatus === 'lapsed' && <span className="text-[11px] font-bold px-2.5 py-1 rounded-full border bg-red-100 border-red-300 text-red-800">● Lapsed</span>}
+              {subStatus === 'none' && <span className="text-[11px] font-bold px-2.5 py-1 rounded-full border bg-stone-100 border-stone-300 text-stone-600">● Not active</span>}
+            </h2>
+            <p className="text-sm text-stone-600 mt-1"><b className="text-deep-900">{inr(SUPPLIER_PLAN.price)}/month</b> · unlimited active helper profiles · unlimited callback requests &amp; number unlocks while active · renews monthly via UPI AutoPay, cancel anytime</p>
+          </div>
+          {subStatus === 'active'
+            ? <button onClick={() => setSubModal(true)} className="bg-deep-800 hover:bg-deep-900 text-white text-sm font-semibold rounded-xl px-4 py-2.5">Renew early — extend 30 days</button>
+            : <button onClick={() => setSubModal(true)} className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl px-4 py-2.5">{subStatus === 'lapsed' ? 'Renew' : 'Pay ' + inr(SUPPLIER_PLAN.price) + ' — activate for 30 days'}</button>}
+        </div>
+        {subStatus === 'active' && <p className="text-sm text-stone-700 mt-3">Active until <b>{fmtDate(supplierSub.currentPeriodEnd)}</b> · <b>{daysLeft} day{daysLeft === 1 ? '' : 's'} left</b> · {profiles.length} profile{profiles.length === 1 ? '' : 's'} listed, all active — no limit on profiles</p>}
+        {subStatus === 'lapsed' && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mt-3"><b>Your subscription lapsed on {fmtDate(supplierSub.currentPeriodEnd)}.</b> Your profiles are inactive — hidden from Browse, search and their own pages — and callback numbers can't be unlocked. Renew to switch everything back on; nothing was deleted.</p>}
+        {subStatus === 'none' && <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mt-3"><b>Your profiles are not active yet.</b> Adding profiles is free, but employers can't see them until your first month is paid. Pay {inr(SUPPLIER_PLAN.price)} to activate for 30 days.</p>}
+        {supplierSub && <p className="mt-3"><button onClick={simulateSupplierLapse} className="text-xs text-stone-400 underline">Demo: simulate lapse (pretend the paid month ended yesterday)</button></p>}
+      </section>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+        {[['Profiles listed', profiles.length], ['Profiles active', activeProfiles.length], ['Callback requests', cbs.length], ['Numbers unlocked', unlockedCount]].map(([l, n]) => (
           <div key={l} className="bg-white rounded-2xl border border-stone-200 py-4 px-3 text-center"><p className="font-extrabold text-deep-900 text-2xl">{n}</p><p className="text-xs text-stone-500 mt-0.5">{l}</p></div>
         ))}
       </div>
@@ -115,7 +135,9 @@ export function SupplierDashboard() {
                 <p className="text-xs text-stone-500">{h.state} · In {h.location} · {sgd(h.salary)}/mo · {cbs.filter(c => c.helperId === h.id).length} callback request{cbs.filter(c => c.helperId === h.id).length === 1 ? '' : 's'}</p>
               </div>
               <StatusBadge s={h.status} />
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border bg-green-100 border-green-300 text-green-800">● Live</span>
+              {isProfileActive(h)
+                ? <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border bg-green-100 border-green-300 text-green-800">● Active — live in search</span>
+                : <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border bg-stone-100 border-stone-300 text-stone-600">● Inactive — subscription not active</span>}
               <Link to={'/helper/' + h.id} className="text-sm font-semibold text-deep-700 underline">View public profile</Link>
             </div>))}
           </div>}
@@ -123,7 +145,7 @@ export function SupplierDashboard() {
 
       <section className="mt-10">
         <h2 className="text-xl font-extrabold text-deep-950">Callback requests</h2>
-        <p className="text-sm text-stone-500 mt-1">Employers who asked you to call them back. Their numbers stay hidden until you unlock them — 1 credit each, only when you choose.</p>
+        <p className="text-sm text-stone-500 mt-1">Employers who asked you to call them back. While your subscription is active, unlock their numbers at no extra charge — included in your plan.</p>
         {cbs.length === 0
           ? <div className="bg-white border border-stone-200 rounded-2xl p-6 text-center text-stone-600 mt-3 text-sm">No callback requests yet. When an employer requests a callback on one of your profiles, it will appear here.</div>
           : <div className="space-y-3 mt-3">{cbs.map(cb => (
@@ -144,15 +166,18 @@ export function SupplierDashboard() {
                     <p className="text-[11px] text-green-700 font-medium mt-1.5">Unlocked ✓</p>
                   </> : <>
                     <p className="font-mono tracking-wide bg-stone-100 rounded-xl px-3 py-2 text-stone-600">{maskPhone(cb.employerPhone)}</p>
-                    <button onClick={() => unlock(cb)} className="mt-2 w-full bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl px-3 py-2.5">Unlock number · 1 credit</button>
-                    <p className="text-[11px] text-stone-400 mt-1.5">Your balance: {supplierCredits} credit{supplierCredits === 1 ? '' : 's'}{supplierCredits < 1 ? ' — buying opens first' : ''}</p>
+                    {supplierSubIsActive
+                      ? <><button onClick={() => unlock(cb)} className="mt-2 w-full bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl px-3 py-2.5">Unlock number — included in your plan</button>
+                        <p className="text-[11px] text-stone-400 mt-1.5">No extra charge while your subscription is active.</p></>
+                      : <><a href="#supplier-subscription" className="block mt-2 w-full text-center bg-deep-800 hover:bg-deep-900 text-white text-sm font-semibold rounded-xl px-3 py-2.5">Renew subscription to unlock</a>
+                        <p className="text-[11px] text-stone-400 mt-1.5">Unlocking is included while your plan is active.</p></>}
                   </>}
                 </div>
               </div>
             </div>))}
           </div>}
       </section>
-      <p className="text-xs text-stone-400 mt-8">Prototype: data stays in this browser (localStorage) — profiles, requests and credits on this device only. Callback credits are bought in ₹ by UPI (mock checkout); salaries stay in S$.</p>
+      <p className="text-xs text-stone-400 mt-8">Prototype: data stays in this browser (localStorage) — profiles, requests and subscription on this device only. Supplier Monthly is {inr(SUPPLIER_PLAN.price)}/month by UPI (mock checkout); salaries stay in S$.</p>
     </main>
   )
 }
@@ -165,6 +190,7 @@ const LEVELS = ['Experienced', 'Some experience', 'Willing to learn']
 
 export function SupplierAdd() {
   const supplier = loadSavedSupplier()
+  const { supplierSubIsActive } = useStore()
   const nav = useNavigate()
   const [f, setF] = useState({ name: '', age: '', state: '', location: 'India', status: 'Fresh', available: '', mainJob: 'Childcare', salary: '', restDays: '2', yearsSG: '0', totalYears: '', colour: '#166534', languages: [], cuisines: [], veg: false, jain: false, pork: false, beef: false, about: '', expects: '', histPeriod: '', histFamily: '', histDuties: '', histReason: '' })
   const [skills, setSkills] = useState([{ name: 'Childcare (1–6 yrs)', level: 'Experienced' }, { name: 'Cooking', level: 'Some experience' }])
@@ -215,8 +241,10 @@ export function SupplierAdd() {
   if (savedId) return (
     <main className="max-w-xl mx-auto px-4 py-16 text-center">
       <div className="text-5xl" aria-hidden="true">🎉</div>
-      <h1 className="text-2xl font-extrabold text-deep-950 mt-4">Profile is live</h1>
-      <p className="text-stone-600 mt-3"><b>{f.name}</b> is now listed under {supplier.business} and employers can read the full profile. When an employer requests a callback, it will appear in your dashboard — you pay 1 credit only if you unlock their number. <b>Listing this profile was free.</b></p>
+      <h1 className="text-2xl font-extrabold text-deep-950 mt-4">{supplierSubIsActive ? 'Profile is live' : 'Profile saved'}</h1>
+      <p className="text-stone-600 mt-3"><b>{f.name}</b> is now listed under {supplier.business}. {supplierSubIsActive
+        ? <>Employers can read the full profile now. When an employer requests a callback, it will appear in your dashboard — while your subscription is active you can unlock their number at no extra charge.</>
+        : <>Your subscription is not active right now, so this profile stays <b>hidden from employers</b> until you activate or renew Supplier Monthly from your dashboard.</>} <b>Listing this profile was free.</b></p>
       <div className="flex gap-2 justify-center mt-6 flex-wrap">
         <Link to={'/helper/' + savedId} className="bg-deep-800 text-white font-semibold rounded-xl px-5 py-3">View the live profile</Link>
         <button onClick={() => nav('/supplier/dashboard')} className="bg-cream-100 border border-amber-300 text-deep-900 font-semibold rounded-xl px-5 py-3">Back to dashboard</button>
@@ -227,7 +255,8 @@ export function SupplierAdd() {
   const Field = ({ label, children, full }) => <label className={`block text-sm font-medium ${full ? 'sm:col-span-2' : ''}`}>{label}{children}</label>
   return (
     <main className="max-w-3xl mx-auto px-4 py-10">
-      <SectionTitle sub="Listing a profile is free — you pay only to unlock an employer's number from a callback request. The helper is never charged.">Add a helper profile</SectionTitle>
+      <SectionTitle sub="Listing a profile is free — a monthly subscription (Supplier Monthly, ₹999/month) keeps your profiles active and visible to employers. There is no limit on how many profiles you can list. The helper is never charged.">Add a helper profile</SectionTitle>
+      {!supplierSubIsActive && <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 text-sm text-amber-900 mb-4"><b>Your subscription is not active.</b> You can add this profile now — it will be saved, but hidden from employers until you activate or renew Supplier Monthly from your <Link to="/supplier/dashboard" className="font-semibold underline">dashboard</Link>.</div>}
       <form onSubmit={submit} className="space-y-4" noValidate>
         <Group title="1 · About her">
           <Field label="Her name (as shown publicly)"><input className={inputCls} value={f.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Harpreet K." /><E k="name" /></Field>
@@ -279,7 +308,7 @@ export function SupplierAdd() {
           <Field label="What she is looking for" full><textarea rows={2} className={inputCls} value={f.expects} onChange={e => set('expects', e.target.value)} placeholder="e.g. A family with young children; overseas process is fine" /></Field>
         </Group>
         <button className="w-full bg-deep-800 hover:bg-deep-900 text-white font-bold rounded-xl py-3.5">Publish this profile — free</button>
-        <p className="text-xs text-stone-500 text-center">By publishing you confirm the helper has agreed to be listed and her details are true to your knowledge. Listing is free; the helper is never charged. Prototype — the profile is saved in this browser only.</p>
+        <p className="text-xs text-stone-500 text-center">By publishing you confirm the helper has agreed to be listed and her details are true to your knowledge. Listing is free; the helper is never charged — the monthly subscription that keeps profiles active is the supplier's business cost. Prototype — the profile is saved in this browser only.</p>
       </form>
     </main>
   )

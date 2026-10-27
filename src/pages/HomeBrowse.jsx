@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { HELPERS, allHelpers, MAIN_JOBS, STATES, LANGUAGES, STATUSES, inr, feedbackSummary } from '../data/helpers'
+import { HELPERS, allHelpers, activeHelpers, MAIN_JOBS, STATES, LANGUAGES, STATUSES, inr, feedbackSummary } from '../data/helpers'
 import { HelperCard, SectionTitle } from '../components/ui'
 
 const FAQS = [
@@ -15,7 +15,7 @@ export function Home() {
   const nav = useNavigate()
   const [q, setQ] = useState(''); const [job, setJob] = useState('')
   const [openFaq, setOpenFaq] = useState(0)
-  const featured = allHelpers().filter(h => ['manjit', 'anju', 'mary', 'pooja'].includes(h.id))
+  const featured = activeHelpers().filter(h => ['manjit', 'anju', 'mary', 'pooja'].includes(h.id))
   const go = (e) => { e.preventDefault(); nav(`/browse?q=${encodeURIComponent(q)}&job=${encodeURIComponent(job)}`) }
   return (
     <main>
@@ -77,7 +77,7 @@ export function Home() {
         <div className="mt-4 bg-deep-950 rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-3">
           <div className="flex-1">
             <h3 className="font-bold text-white">🏢 For suppliers — list your helpers</h3>
-            <p className="text-sm text-green-200/80 mt-1">Add profiles of your helpers for free. Employers read them and request a callback — you pay 1 credit only when you unlock an employer's number to call them back. Helpers are never charged.</p>
+            <p className="text-sm text-green-200/80 mt-1">Add profiles of your helpers for free, and keep them active for ₹999/month — no limit on profiles. Employers read them and request callbacks; while your plan is active you unlock employers' numbers at no extra charge. Helpers are never charged.</p>
           </div>
           <Link to="/supplier" className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl px-4 py-2.5 text-sm text-center">Supplier sign-up →</Link>
         </div>
@@ -143,7 +143,7 @@ export function Browse() {
   const [sort, setSort] = useState('confirmed')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const list = useMemo(() => {
-    let r = allHelpers().filter(h =>
+    let r = activeHelpers().filter(h =>
       (!q || (h.name + h.about + h.mainJob + h.state + h.cuisines.join(' ') + h.skills.map(s => s[0]).join(' ') + ' ' + (h.listedBy ? h.listedBy.name : '')).toLowerCase().includes(q.toLowerCase())) &&
       (!job || h.mainJob === job) && (!status || h.status === status) && (!state || h.state === state) &&
       (!listedBy || (listedBy === 'supplier' ? !!h.listedBy : !h.listedBy)) &&

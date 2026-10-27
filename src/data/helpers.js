@@ -185,8 +185,9 @@ export const STATUSES = ['Transfer','Finished contract','Ex-Singapore','Fresh']
 
 // ---- Suppliers -----------------------------------------------------------
 // A supplier lists helper profiles. On supplier profiles there is NO number
-// to reveal: employers request a free callback, and the SUPPLIER pays
-// 1 credit to unlock the employer's number from the request.
+// to reveal: employers request a free callback, and — while the supplier's
+// monthly subscription is active — the supplier can unlock the employer's
+// number from the request at no per-request charge.
 export const SUPPLIERS = [
   { id: 'sunrise', business: 'Sunrise Helpers', contactPerson: 'Rajesh Kumar', base: 'Ludhiana, Punjab', about: 'We list Punjabi and South Indian helpers for Singapore homes. We prepare each helper\u2019s profile, verify her documents with her, and arrange her interview calls with employers.' },
 ]
@@ -207,10 +208,37 @@ export const supplierById = (id) => {
   return null
 }
 
+// ---- Supplier subscription -------------------------------------------------
+// Suppliers pay a monthly fee to keep their helper profiles ACTIVE. While the
+// subscription is active, their profiles are listed in Browse/search/home and
+// callback number unlocks are included at no per-request charge. When it
+// lapses, the supplier's own profiles drop out of the public site and their
+// profile pages show an inactive notice until he renews.
+export const SUPPLIER_PLAN = { name: 'Supplier Monthly', price: 999, days: 30 }
+export const loadSupplierSub = () => { try { return JSON.parse(localStorage.getItem('ihp_supplier_sub') || 'null') } catch { return null } }
+export const saveSupplierSub = (sub) => { try { localStorage.setItem('ihp_supplier_sub', JSON.stringify(sub)) } catch {} }
+export const supplierSubActive = () => {
+  const sub = loadSupplierSub()
+  return !!sub && sub.status === 'active' && new Date(sub.currentPeriodEnd).getTime() > Date.now()
+}
+// Is this profile currently visible/active on the public site? Direct
+// profiles and the seed supplier's profiles are always active. Profiles
+// listed by the signed-up supplier are active only while his subscription
+// is active. There is no limit on how many profiles he can keep active.
+export const isProfileActive = (h) => {
+  if (!h || !h.listedBy) return true
+  if (h.listedBy.supplierId === 'sunrise') return true
+  const mine = loadSavedSupplier()
+  if (!mine || h.listedBy.supplierId !== mine.id) return true
+  return supplierSubActive()
+}
+// The profiles the public site may show right now (Browse, search, home).
+export const activeHelpers = () => allHelpers().filter(isProfileActive)
+
 // ---- Callback requests -----------------------------------------------------
 // Employer -> supplier. Stored in localStorage 'ihp_callbacks'; the employer's
 // full number is stored but only ever RENDERED masked until the supplier
-// pays 1 credit to unlock that request.
+// unlocks that request (included while his subscription is active).
 export const loadCallbacks = () => { try { const v = JSON.parse(localStorage.getItem('ihp_callbacks') || '[]'); return Array.isArray(v) ? v : [] } catch { return [] } }
 export const addCallback = (cb) => { try { const all = loadCallbacks(); all.push(cb); localStorage.setItem('ihp_callbacks', JSON.stringify(all)) } catch {} }
 export const updateCallback = (id, patch) => { try { const all = loadCallbacks().map(c => c.id === id ? { ...c, ...patch } : c); localStorage.setItem('ihp_callbacks', JSON.stringify(all)); return all } catch { return loadCallbacks() } }
