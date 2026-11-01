@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { allHelpers, loadCallbacks, updateCallback, loadSavedSupplier, maskPhone, inr, sgd, STATES, MAIN_JOBS, STATUSES, SUPPLIER_PLAN, isProfileActive } from '../data/helpers'
 import { useStore, Avatar, StatusBadge } from '../store'
 import { SectionTitle } from '../components/ui'
+import { SPECIAL_COOKING, RELIGIONS, LangLevelPicker, CuisineRatingPicker, RatedSkillsPicker, HistoryEditor, CertEditor, PhotoField, TransferConsent, HouseholdPrefs } from '../components/helperForm'
 
 const inputCls = 'w-full border border-stone-300 rounded-xl px-3 py-2.5 mt-1 bg-white text-sm'
 const myCallbacks = (supplierId) => loadCallbacks().filter(c => c.supplierId === supplierId).sort((a, b) => new Date(b.at) - new Date(a.at))
@@ -183,58 +184,82 @@ export function SupplierDashboard() {
 }
 
 // --------------------------------------------------------------- add a profile
-const LANGS = ['Hindi', 'Punjabi', 'Tamil', 'Telugu', 'Malayalam', 'Bengali', 'English']
-const CUIS = ['North Indian', 'South Indian', 'Pure-veg daily cooking', 'Jain / no onion-garlic', 'Bengali', 'Indo-Chinese', 'Western']
-const COLOURS = ['#166534', '#b45309', '#0f766e', '#9d174d', '#1d4ed8', '#7c2d12', '#be185d', '#374151']
-const LEVELS = ['Experienced', 'Some experience', 'Willing to learn']
-
 export function SupplierAdd() {
   const supplier = loadSavedSupplier()
   const { supplierSubIsActive } = useStore()
   const nav = useNavigate()
-  const [f, setF] = useState({ name: '', age: '', state: '', location: 'India', status: 'Fresh', available: '', mainJob: 'Childcare', salary: '', restDays: '2', yearsSG: '0', totalYears: '', colour: '#166534', languages: [], cuisines: [], veg: false, jain: false, pork: false, beef: false, about: '', expects: '', histPeriod: '', histFamily: '', histDuties: '', histReason: '' })
-  const [skills, setSkills] = useState([{ name: 'Childcare (1–6 yrs)', level: 'Experienced' }, { name: 'Cooking', level: 'Some experience' }])
+  const EMPTY_HIST = { country: '', fromYear: '', toYear: '', family: '', duties: '', reason: 'Finished contract' }
+  const [f, setF] = useState({
+    name: '', age: '', helperMobile: '', whatsapp: 'Yes', email: '', fullName: '', photo: '', colour: '#166534',
+    state: '', location: 'India', status: 'Fresh', available: '', transferConsent: '', releaseDate: '',
+    mainJob: 'Childcare', yearsSG: '0', totalYears: '',
+    languages: {}, cuisines: {}, veg: false, jain: false, pork: false, beef: false,
+    specialCooking: [], vegetarianSelf: false, vegSeparate: false,
+    skills: {}, skillsOther: '', about: '', expects: '',
+    history: [{ ...EMPTY_HIST }], freshNoHistory: false, certs: [],
+    householdPrefs: [], sundaysPreferred: 'Yes',
+    religion: 'Prefer not to say', ownFood: 'Prefer not to say', videoUrl: '',
+    salary: '', restDays: '2',
+  })
   const [errs, setErrs] = useState({})
   const [savedId, setSavedId] = useState('')
+  const [savedSummary, setSavedSummary] = useState(null)
   if (!supplier) return <Navigate to="/supplier" replace />
   const set = (k, v) => setF(s => ({ ...s, [k]: v }))
   const toggleArr = (k, v) => setF(s => ({ ...s, [k]: s[k].includes(v) ? s[k].filter(x => x !== v) : [...s[k], v] }))
   const E = ({ k }) => errs[k] ? <p className="text-xs text-red-700 mt-1 font-medium">{errs[k]}</p> : null
+  const needsConsent = f.status === 'Transfer' && f.location === 'Singapore'
   const submit = (e) => {
     e.preventDefault()
     const er = {}
     if (!f.name.trim()) er.name = 'Please enter the helper\u2019s name'
     if (!f.age || +f.age < 18 || +f.age > 65) er.age = 'Enter her age (helpers must be 23 to below 50 for a first Singapore Work Permit)'
+    if (f.helperMobile.trim() && !/^[+\d][\d\s]{7,}$/.test(f.helperMobile.trim())) er.helperMobile = 'That number does not look right'
+    if (f.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) er.email = 'That email does not look right'
     if (!f.state) er.state = 'Choose her state'
     if (!f.available.trim()) er.available = 'When can she start?'
+    if (needsConsent && !f.transferConsent) er.transferConsent = 'Please tell us about her transfer consent — a transfer cannot happen without it (or a contract reaching its end date)'
+    if (f.yearsSG === '' || +f.yearsSG < 0) er.yearsSG = 'Enter years worked in Singapore (0 is fine)'
+    if (f.totalYears === '' || +f.totalYears < 0) er.totalYears = 'Enter total years as a helper (0 is fine)'
+    if (Object.keys(f.languages).length === 0) er.languages = 'Choose at least one language'
+    if (Object.keys(f.skills).length < 3) er.skills = 'Pick at least 3 rated skills — that is the minimum for a live profile'
+    if (!f.freshNoHistory && !f.history.some(h => h.country.trim() && h.duties.trim())) er.history = 'Add at least one past job (country + duties), or tick “Fresh helper”'
     if (!f.salary || +f.salary < 300) er.salary = 'Enter the monthly salary she expects, in S$'
     if (+f.restDays === 0) er.restDays = 'Rest days cannot be 0. By law in Singapore, every helper must get at least 1 rest day in a month that cannot be replaced by payment. Please choose at least 1.'
-    if (f.languages.length === 0) er.languages = 'Choose at least one language'
-    if (skills.filter(s => s.name.trim()).length === 0) er.skills = 'Add at least one skill'
     if (!f.about.trim() || f.about.trim().length < 30) er.about = 'Write a few lines about her (at least 30 characters)'
     setErrs(er)
     if (Object.keys(er).length) return
     const id = 'sup-' + Date.now().toString(36)
-    const history = (f.histPeriod.trim() || f.histDuties.trim())
-      ? [{ period: f.histPeriod.trim() || 'Previous work', family: f.histFamily.trim() || 'Family in India', duties: f.histDuties.trim(), reason: f.histReason.trim() || 'Looking for a Singapore job' }]
-      : []
     const profile = {
       id, name: f.name.trim(), age: +f.age, state: f.state, status: f.status, location: f.location,
       available: f.available.trim(), availableInDays: 0, mainJob: f.mainJob, salary: +f.salary, restDays: +f.restDays,
       yearsSG: +f.yearsSG || 0, totalYears: +f.totalYears || 0, confirmedDays: 0, colour: f.colour,
-      languages: f.languages.map((l, i) => [l, i === 0 ? 'Fluent' : 'Conversational']),
-      cuisines: f.cuisines, veg: f.veg, jain: f.jain, pork: f.pork, beef: f.beef,
-      skills: skills.filter(s => s.name.trim()).map(s => [s.name.trim(), s.level]),
-      about: f.about.trim(), history,
+      languages: Object.entries(f.languages),
+      cuisines: Object.entries(f.cuisines),
+      veg: f.veg, jain: f.jain || f.specialCooking.includes('Jain / no onion-garlic'), pork: f.pork, beef: f.beef,
+      specialCooking: f.specialCooking, vegetarianSelf: f.vegetarianSelf, vegSeparate: f.vegSeparate,
+      skills: Object.entries(f.skills), skillsOther: f.skillsOther.trim(),
+      about: f.about.trim(),
+      history: f.freshNoHistory ? [] : f.history.filter(h => h.country.trim()).map(h => ({
+        period: `${h.country.trim()} · ${h.fromYear.trim()}${h.toYear.trim() ? ' — ' + h.toYear.trim() : ''}`,
+        family: h.family.trim(), duties: h.duties.trim(), reason: h.reason,
+      })),
+      freshNoHistory: f.freshNoHistory,
+      certs: f.certs.filter(c => c.course.trim()),
+      householdPrefs: f.householdPrefs, sundaysPreferred: f.sundaysPreferred,
+      religion: f.religion, ownFood: f.ownFood, videoUrl: f.videoUrl.trim(),
+      transferConsent: f.transferConsent, releaseDate: f.releaseDate.trim(),
+      whatsapp: f.whatsapp, email: f.email.trim(), fullName: f.fullName.trim(), helperMobile: f.helperMobile.trim(),
       expects: f.expects.trim() || 'Open to the right family in Singapore — details can be discussed with the supplier on the callback.',
       listedBy: { supplierId: supplier.id, name: supplier.business },
-      feedback: [], image: `/images/${id}.jpg`,
+      feedback: [], image: f.photo || `/images/${id}.jpg`,
     }
     try {
       const cur = JSON.parse(localStorage.getItem('ihp_supplier_profiles') || '[]')
       cur.push(profile)
       localStorage.setItem('ihp_supplier_profiles', JSON.stringify(cur))
     } catch {}
+    setSavedSummary({ name: profile.name, skills: profile.skills.length, languages: profile.languages.length, history: profile.history.length, fresh: profile.freshNoHistory, transferConsent: profile.transferConsent })
     setSavedId(id)
     window.scrollTo(0, 0)
   }
@@ -245,6 +270,11 @@ export function SupplierAdd() {
       <p className="text-stone-600 mt-3"><b>{f.name}</b> is now listed under {supplier.business}. {supplierSubIsActive
         ? <>Employers can read the full profile now. When an employer requests a callback, it will appear in your dashboard — while your subscription is active you can unlock their number at no extra charge.</>
         : <>Your subscription is not active right now, so this profile stays <b>hidden from employers</b> until you activate or renew Supplier Monthly from your dashboard.</>} <b>Listing this profile was free.</b></p>
+      {savedSummary && <div className="bg-white border border-stone-200 rounded-2xl p-4 mt-6 text-left text-sm text-stone-700 space-y-1.5">
+        <p className="font-bold text-deep-950">What was saved</p>
+        <p>🗣️ Languages: {savedSummary.languages} · ⭐ Rated skills: {savedSummary.skills} · 💼 Past jobs: {savedSummary.fresh ? 'fresh helper' : savedSummary.history}</p>
+        {savedSummary.transferConsent && <p>🤝 Transfer consent: {savedSummary.transferConsent}</p>}
+      </div>}
       <div className="flex gap-2 justify-center mt-6 flex-wrap">
         <Link to={'/helper/' + savedId} className="bg-deep-800 text-white font-semibold rounded-xl px-5 py-3">View the live profile</Link>
         <button onClick={() => nav('/supplier/dashboard')} className="bg-cream-100 border border-amber-300 text-deep-900 font-semibold rounded-xl px-5 py-3">Back to dashboard</button>
@@ -253,59 +283,66 @@ export function SupplierAdd() {
   )
   const Group = ({ title, sub, children }) => <section className="bg-white border border-stone-200 rounded-2xl p-5"><h2 className="font-bold text-deep-950">{title}</h2>{sub && <p className="text-sm text-stone-500 mb-3">{sub}</p>}<div className="grid sm:grid-cols-2 gap-4 mt-2">{children}</div></section>
   const Field = ({ label, children, full }) => <label className={`block text-sm font-medium ${full ? 'sm:col-span-2' : ''}`}>{label}{children}</label>
+  const LANGS = ['Hindi', 'Punjabi', 'Tamil', 'Telugu', 'Malayalam', 'Bengali', 'English']
+  const COLOURS = ['#166534', '#b45309', '#0f766e', '#9d174d', '#1d4ed8', '#7c2d12', '#be185d', '#374151']
   return (
     <main className="max-w-3xl mx-auto px-4 py-10">
       <SectionTitle sub="Listing a profile is free — a monthly subscription (Supplier Monthly, ₹999/month) keeps your profiles active and visible to employers. There is no limit on how many profiles you can list. The helper is never charged.">Add a helper profile</SectionTitle>
       {!supplierSubIsActive && <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 text-sm text-amber-900 mb-4"><b>Your subscription is not active.</b> You can add this profile now — it will be saved, but hidden from employers until you activate or renew Supplier Monthly from your <Link to="/supplier/dashboard" className="font-semibold underline">dashboard</Link>.</div>}
       <form onSubmit={submit} className="space-y-4" noValidate>
-        <Group title="1 · About her">
-          <Field label="Her name (as shown publicly)"><input className={inputCls} value={f.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Harpreet K." /><E k="name" /></Field>
-          <Field label="Age"><input type="number" className={inputCls} value={f.age} onChange={e => set('age', e.target.value)} placeholder="e.g. 30" /><E k="age" /></Field>
-          <Field label="State in India"><select className={inputCls} value={f.state} onChange={e => set('state', e.target.value)}><option value="">Choose…</option>{STATES.map(s => <option key={s}>{s}</option>)}<option>Other Indian state</option></select><E k="state" /></Field>
-          <Field label="Avatar colour (no photo upload in the prototype)"><div className="flex gap-2 mt-2">{COLOURS.map(c => <button type="button" key={c} onClick={() => set('colour', c)} aria-label={'Avatar colour ' + c} className={`w-9 h-9 rounded-full text-white font-bold flex items-center justify-center ${f.colour === c ? 'ring-2 ring-offset-2 ring-stone-700' : ''}`} style={{ background: c }}>{(f.name || 'H')[0].toUpperCase()}</button>)}</div></Field>
+        <Group title="1 · About her" sub="Only her first name is shown publicly. Contact details here are private — employers reach you, the supplier, through a callback.">
+          <Field label="Her name (as shown publicly) *"><input className={inputCls} value={f.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Harpreet K." /><E k="name" /></Field>
+          <Field label="Age *"><input type="number" className={inputCls} value={f.age} onChange={e => set('age', e.target.value)} placeholder="e.g. 30" /><E k="age" /></Field>
+          <Field label="Her mobile number (private — for your records only)"><input className={inputCls} value={f.helperMobile} onChange={e => set('helperMobile', e.target.value)} placeholder="+91 …" /><E k="helperMobile" /></Field>
+          <Field label="Is her mobile number on WhatsApp?"><select className={inputCls} value={f.whatsapp} onChange={e => set('whatsapp', e.target.value)}><option>Yes</option><option>No</option></select></Field>
+          <Field label="Her email (optional, private)"><input className={inputCls} value={f.email} onChange={e => set('email', e.target.value)} placeholder="her@email.com" /><E k="email" /></Field>
+          <Field label="Her full name (private, for verification only)"><input className={inputCls} value={f.fullName} onChange={e => set('fullName', e.target.value)} placeholder="e.g. Harpreet Kaur" /><p className="text-xs text-stone-500 mt-1">Only her first name is shown publicly.</p></Field>
+          <Field label="Profile photo" full><PhotoField value={f.photo} onChange={v => set('photo', v)} /></Field>
+          <Field label="Avatar colour (used if you skip the photo)"><div className="flex gap-2 mt-2">{COLOURS.map(c => <button type="button" key={c} onClick={() => set('colour', c)} aria-label={'Avatar colour ' + c} className={`w-9 h-9 rounded-full text-white font-bold flex items-center justify-center ${f.colour === c ? 'ring-2 ring-offset-2 ring-stone-700' : ''}`} style={{ background: c }}>{(f.name || 'H')[0].toUpperCase()}</button>)}</div></Field>
         </Group>
         <Group title="2 · Where is she now?">
           <Field label="Currently in"><select className={inputCls} value={f.location} onChange={e => set('location', e.target.value)}><option>India</option><option>Singapore</option><option>Another country</option></select></Field>
           <Field label="Her status"><select className={inputCls} value={f.status} onChange={e => set('status', e.target.value)}>{STATUSES.map(s => <option key={s}>{s}</option>)}</select></Field>
-          <Field label="Available from"><input className={inputCls} value={f.available} onChange={e => set('available', e.target.value)} placeholder="e.g. Available now, or From Jan 2027" /><E k="available" /></Field>
+          <Field label="Available from *"><input className={inputCls} value={f.available} onChange={e => set('available', e.target.value)} placeholder="e.g. Available now, or From Jan 2027" /><E k="available" /></Field>
           <Field label="Main job she wants"><select className={inputCls} value={f.mainJob} onChange={e => set('mainJob', e.target.value)}>{MAIN_JOBS.map(j => <option key={j}>{j}</option>)}</select></Field>
-          <Field label="Years worked in Singapore"><input type="number" min="0" className={inputCls} value={f.yearsSG} onChange={e => set('yearsSG', e.target.value)} /></Field>
-          <Field label="Total years of experience"><input type="number" min="0" className={inputCls} value={f.totalYears} onChange={e => set('totalYears', e.target.value)} placeholder="e.g. 3" /></Field>
+          <Field label="Years worked in Singapore *"><input type="number" min="0" className={inputCls} value={f.yearsSG} onChange={e => set('yearsSG', e.target.value)} /><E k="yearsSG" /></Field>
+          <Field label="Total years of experience *"><input type="number" min="0" className={inputCls} value={f.totalYears} onChange={e => set('totalYears', e.target.value)} placeholder="e.g. 3" /><E k="totalYears" /></Field>
+          <TransferConsent status={f.status} location={f.location} value={f.transferConsent} releaseDate={f.releaseDate} onConsent={v => set('transferConsent', v)} onReleaseDate={v => set('releaseDate', v)} error={errs.transferConsent} />
         </Group>
         <Group title="3 · Languages & cooking">
-          <Field label="Languages she speaks" full><div className="flex flex-wrap gap-2 mt-1">{LANGS.map(l => <button type="button" key={l} onClick={() => toggleArr('languages', l)} className={`text-sm rounded-full px-3 py-1.5 border ${f.languages.includes(l) ? 'bg-deep-800 text-white border-deep-800' : 'border-stone-300 bg-white'}`}>{l}</button>)}</div><E k="languages" /></Field>
-          <Field label="Cooking she can do" full><div className="flex flex-wrap gap-2 mt-1">{CUIS.map(l => <button type="button" key={l} onClick={() => toggleArr('cuisines', l)} className={`text-sm rounded-full px-3 py-1.5 border ${f.cuisines.includes(l) ? 'bg-deep-800 text-white border-deep-800' : 'border-stone-300 bg-white'}`}>{l}</button>)}</div></Field>
+          <Field label="Languages she speaks * — tap one, then pick its level" full><LangLevelPicker value={f.languages} onChange={v => set('languages', v)} langs={LANGS} /><E k="languages" /></Field>
+          <Field label="Cooking she can do — tap one, then rate it" full><CuisineRatingPicker value={f.cuisines} onChange={v => set('cuisines', v)} /></Field>
           <div className="sm:col-span-2 flex flex-wrap gap-4 text-sm font-medium">
             <label className="flex items-center gap-2"><input type="checkbox" checked={f.veg} onChange={e => set('veg', e.target.checked)} className="w-4 h-4 accent-green-800" /> Pure-veg cooking</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={f.jain} onChange={e => set('jain', e.target.checked)} className="w-4 h-4 accent-green-800" /> Jain / no onion-garlic</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={f.pork} onChange={e => set('pork', e.target.checked)} className="w-4 h-4 accent-green-800" /> Can handle &amp; cook pork</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={f.beef} onChange={e => set('beef', e.target.checked)} className="w-4 h-4 accent-green-800" /> Can handle &amp; cook beef</label>
           </div>
-        </Group>
-        <Group title="4 · Skills (with her level for each)">
-          <div className="sm:col-span-2 space-y-2">
-            {skills.map((s, i) => (
-              <div key={i} className="flex gap-2">
-                <input className={inputCls + ' flex-1'} value={s.name} onChange={e => setSkills(skills.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="e.g. Childcare (1–6 yrs)" />
-                <select className={inputCls + ' w-44'} value={s.level} onChange={e => setSkills(skills.map((x, j) => j === i ? { ...x, level: e.target.value } : x))}>{LEVELS.map(l => <option key={l}>{l}</option>)}</select>
-                <button type="button" onClick={() => setSkills(skills.filter((_, j) => j !== i))} className="px-3 text-stone-400 hover:text-red-600 font-bold" aria-label="Remove skill">×</button>
-              </div>
-            ))}
-            <button type="button" onClick={() => setSkills([...skills, { name: '', level: 'Some experience' }])} className="text-sm font-semibold text-deep-700 underline">+ Add a skill</button>
-            <E k="skills" />
+          <Field label="Special Indian cooking" full><div className="flex flex-wrap gap-2 mt-1">{SPECIAL_COOKING.map(s => <button type="button" key={s} onClick={() => toggleArr('specialCooking', s)} className={`text-sm rounded-full px-3 py-1.5 border ${f.specialCooking.includes(s) ? 'bg-deep-800 text-white border-deep-800' : 'border-stone-300 bg-white'}`}>{s}</button>)}</div></Field>
+          <div className="sm:col-span-2 flex flex-wrap gap-4 text-sm font-medium">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={f.vegetarianSelf} onChange={e => set('vegetarianSelf', e.target.checked)} className="w-4 h-4 accent-green-800" /> She is vegetarian herself</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={f.vegSeparate} onChange={e => set('vegSeparate', e.target.checked)} className="w-4 h-4 accent-green-800" /> She keeps veg and non-veg separate in cooking and storage</label>
           </div>
         </Group>
-        <Group title="5 · Her past work (one entry is enough)">
-          <Field label="Period"><input className={inputCls} value={f.histPeriod} onChange={e => set('histPeriod', e.target.value)} placeholder="e.g. 2023 — 2026 · India (Amritsar)" /></Field>
-          <Field label="Family she worked for"><input className={inputCls} value={f.histFamily} onChange={e => set('histFamily', e.target.value)} placeholder="e.g. Family with 2 children" /></Field>
-          <Field label="Duties" full><input className={inputCls} value={f.histDuties} onChange={e => set('histDuties', e.target.value)} placeholder="e.g. Childcare, cooking, school run" /></Field>
-          <Field label="Reason for leaving"><input className={inputCls} value={f.histReason} onChange={e => set('histReason', e.target.value)} placeholder="e.g. Looking for first Singapore job" /></Field>
+        <Group title="4 · Rated skills *">
+          <div className="sm:col-span-2"><RatedSkillsPicker value={f.skills} onChange={v => set('skills', v)} error={errs.skills} /></div>
+          <Field label="Anything else she can do" full><input className={inputCls} value={f.skillsOther} onChange={e => set('skillsOther', e.target.value)} placeholder="e.g. She can sew, she drives a scooter…" /></Field>
+        </Group>
+        <Group title="5 · Work history">
+          <div className="sm:col-span-2"><HistoryEditor value={f.history} onChange={v => set('history', v)} fresh={f.freshNoHistory} onFreshChange={v => set('freshNoHistory', v)} /><E k="history" /></div>
         </Group>
         <Group title="6 · What she expects">
-          <Field label="Expected monthly salary (S$)"><input type="number" className={inputCls} value={f.salary} onChange={e => set('salary', e.target.value)} placeholder="e.g. 650" /><E k="salary" /></Field>
-          <Field label="Rest days she expects, per month"><input type="number" min="0" max="8" className={inputCls} value={f.restDays} onChange={e => set('restDays', e.target.value)} /><E k="restDays" /></Field>
-          <Field label="About her — a few honest lines" full><textarea rows={4} className={inputCls} value={f.about} onChange={e => set('about', e.target.value)} placeholder="Where she is from, what she does well, the work she has done, and the job she is looking for…" /><E k="about" /></Field>
+          <Field label="Expected monthly salary (S$) *"><input type="number" className={inputCls} value={f.salary} onChange={e => set('salary', e.target.value)} placeholder="e.g. 650" /><E k="salary" /></Field>
+          <Field label="Rest days she expects, per month *"><input type="number" min="0" max="8" className={inputCls} value={f.restDays} onChange={e => set('restDays', e.target.value)} /><E k="restDays" /></Field>
+          <Field label="About her — a few honest lines *" full><textarea rows={4} className={inputCls} value={f.about} onChange={e => set('about', e.target.value)} placeholder="Where she is from, what she does well, the work she has done, and the job she is looking for…" /><E k="about" /></Field>
           <Field label="What she is looking for" full><textarea rows={2} className={inputCls} value={f.expects} onChange={e => set('expects', e.target.value)} placeholder="e.g. A family with young children; overseas process is fine" /></Field>
+        </Group>
+        <Group title="7 · More about her (optional)" sub="Optional. Anything left blank simply does not appear on her profile.">
+          <Field label="Video intro link (optional, up to 60 seconds)" full><input className={inputCls} value={f.videoUrl} onChange={e => set('videoUrl', e.target.value)} placeholder="Paste a link to her short video, e.g. YouTube or Google Drive" /><p className="text-xs text-stone-500 mt-1">A short video of her speaking is the strongest shortlisting aid — employers trust a face and a voice far more than words alone. No video uploader here: just paste a link.</p></Field>
+          <Field label="Religion (optional — shown only if she chooses to show it)"><select className={inputCls} value={f.religion} onChange={e => set('religion', e.target.value)}>{RELIGIONS.map(r => <option key={r}>{r}</option>)}</select></Field>
+          <Field label="Her own food"><select className={inputCls} value={f.ownFood} onChange={e => set('ownFood', e.target.value)}><option>Vegetarian</option><option>Non-vegetarian</option><option>Prefer not to say</option></select></Field>
+          <Field label="Certifications & training (optional)" full><CertEditor value={f.certs} onChange={v => set('certs', v)} /></Field>
+          <Field label="Household preferences" full><HouseholdPrefs value={f.householdPrefs} onChange={v => set('householdPrefs', v)} sundays={f.sundaysPreferred} onSundays={v => set('sundaysPreferred', v)} /></Field>
         </Group>
         <button className="w-full bg-deep-800 hover:bg-deep-900 text-white font-bold rounded-xl py-3.5">Publish this profile — free</button>
         <p className="text-xs text-stone-500 text-center">By publishing you confirm the helper has agreed to be listed and her details are true to your knowledge. Listing is free; the helper is never charged — the monthly subscription that keeps profiles active is the supplier's business cost. Prototype — the profile is saved in this browser only.</p>

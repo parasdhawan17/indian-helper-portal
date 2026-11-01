@@ -180,6 +180,8 @@ export function Profile() {
                 <p className="text-stone-500 text-sm mt-0.5">From {h.state}, India · Currently in {h.location}</p>
                 <div className="flex gap-2 mt-2 flex-wrap"><StatusBadge s={h.status} />{h.listedBy && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border bg-amber-100 border-amber-300 text-amber-800">🏢 Listed by supplier</span>}<span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-cream-100 border-amber-200">{h.available}</span><span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-green-50 border-green-200 text-green-800">✓ Confirmed available {h.confirmedDays === 0 ? 'today' : `${h.confirmedDays} days ago`}</span></div>
                 <p className="mt-3 font-semibold text-deep-900">{h.mainJob} · {h.yearsSG} years in Singapore · {h.totalYears} years total experience</p>
+                {h.videoUrl && <p className="mt-2 text-sm"><a href={h.videoUrl} target="_blank" rel="noreferrer" className="font-semibold text-deep-700 underline">▶ Watch my 60-second video intro</a> <span className="text-stone-500">(a short video she provided)</span></p>}
+                {h.transferConsent && <p className="mt-1.5 text-sm text-stone-600">🤝 Transfer consent: <b>{h.transferConsent}</b>{h.releaseDate ? ` · Release date: ${h.releaseDate}` : ''}</p>}
                 <div className="flex items-center gap-3 flex-wrap mt-4 pt-4 border-t border-stone-100">
                   <p className="text-sm text-stone-500">Expected salary<br /><span className="text-xl font-extrabold text-deep-800">{sgd(h.salary)}<span className="text-xs font-medium text-stone-500">/mo</span></span></p>
                   {h.listedBy
@@ -225,9 +227,12 @@ export function Profile() {
             <div className="flex flex-wrap gap-2">{h.languages.map(([l, lv]) => <span key={l} className="text-sm bg-cream-100 border border-amber-200 rounded-full px-3 py-1">{l} — {lv}</span>)}</div>
             <h3 className="font-bold mt-5 mb-2">Cooking &amp; food handling</h3>
             <ul className="text-sm text-stone-700 space-y-1.5">
-              <li>🍛 Cuisines: <b>{h.cuisines.join(', ')}</b></li>
+              <li>🍛 Cuisines: <b>{h.cuisines.map(c => Array.isArray(c) ? `${c[0]} (${c[1]})` : c).join(', ')}</b></li>
               <li>🥬 Pure-vegetarian cooking: <b>{h.veg ? 'Yes' : 'No'}</b> · Jain / no onion-garlic: <b>{h.jain ? 'Yes' : 'No'}</b></li>
               <li>🥓 Can handle &amp; cook pork: <b>{h.pork ? 'Yes' : 'No'}</b> · Beef: <b>{h.beef ? 'Yes' : 'No'}</b></li>
+              {h.specialCooking && h.specialCooking.length > 0 && <li>✨ Special Indian cooking: <b>{h.specialCooking.join(', ')}</b></li>}
+              {h.vegetarianSelf && <li>🥗 She is vegetarian herself: <b>Yes</b></li>}
+              {h.vegSeparate && <li>🥗 She keeps veg and non-veg separate in cooking and storage: <b>Yes</b></li>}
             </ul>
           </section>
 
@@ -235,6 +240,34 @@ export function Profile() {
             <h2 className="font-bold mb-1">About me</h2><p className="text-stone-700 text-sm leading-relaxed">{h.about}</p>
             <h2 className="font-bold mt-6 mb-1">What I am looking for</h2><p className="text-stone-700 text-sm leading-relaxed">{h.expects}</p>
           </section>
+
+          {(h.religion && h.religion !== 'Prefer not to say' || h.ownFood && h.ownFood !== 'Prefer not to say' || (h.householdPrefs && h.householdPrefs.length > 0) || (h.certs && h.certs.length > 0) || h.skillsOther) && (
+          <section className="bg-white rounded-2xl border border-stone-200 p-5">
+            <h2 className="font-bold mb-3">More about me</h2>
+            <ul className="text-sm text-stone-700 space-y-1.5">
+              {h.religion && h.religion !== 'Prefer not to say' && <li>🙏 Religion (as she chose to show it): <b>{h.religion}</b></li>}
+              {h.ownFood && h.ownFood !== 'Prefer not to say' && <li>🍽️ My own food: <b>{h.ownFood}</b></li>}
+              {h.sundaysPreferred && <li>📅 Sundays preferred as rest day: <b>{h.sundaysPreferred}</b></li>}
+            </ul>
+            {h.householdPrefs && h.householdPrefs.length > 0 && (
+              <div className="mt-3">
+                <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">Household preferences</p>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {h.householdPrefs.map(p => <span key={p} className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-cream-100 border border-amber-200 text-deep-900">{p}</span>)}
+                </div>
+              </div>
+            )}
+            {h.skillsOther && <p className="text-sm text-stone-700 mt-3">Other things I can do: <b>{h.skillsOther}</b></p>}
+            {h.certs && h.certs.length > 0 && (
+              <div className="mt-3">
+                <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">Certifications &amp; training</p>
+                <ul className="text-sm text-stone-700 mt-1.5 space-y-1">
+                  {h.certs.map((c, i) => <li key={i}>🎓 {c.course}{c.year ? ` (${c.year})` : ''}</li>)}
+                </ul>
+              </div>
+            )}
+          </section>
+          )}
 
           <section id="employer-feedback" className="bg-white rounded-2xl border border-stone-200 p-5 scroll-mt-24">
             <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -319,6 +352,7 @@ export function Profile() {
 
           <section className="bg-white rounded-2xl border border-stone-200 p-5">
             <h2 className="font-bold mb-3">Work history</h2>
+            {h.freshNoHistory && <p className="text-sm text-stone-600 bg-cream-50 border border-amber-100 rounded-xl p-3 mb-4">Fresh helper — no Singapore work history yet. She will need training in the first weeks, and says so honestly.</p>}
             <ol className="relative border-l-2 border-green-100 ml-1 space-y-5">{h.history.map((w, i) => (
               <li key={i} className="pl-4 relative"><span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-deep-700" /><p className="font-semibold text-sm">{w.period}</p><p className="text-sm text-stone-600">{w.family}</p><p className="text-sm text-stone-700 mt-0.5">{w.duties}</p><p className="text-xs text-stone-500 mt-0.5">Reason for leaving: {w.reason}</p></li>))}
             </ol>
@@ -345,6 +379,7 @@ export function Profile() {
             <p className="text-xs text-stone-500 mt-3">Wrong number? Report it within 7 days in My Reveals and the credit is restored. Contact is to discuss this job only.</p>
           </> : <>
             <p className="mt-3 text-lg font-mono font-bold tracking-wide bg-green-50 border border-green-200 rounded-xl px-3 py-3 text-center text-deep-900">{phone}</p>
+            {h.whatsapp && <p className="text-xs text-stone-500 text-center mt-1">This number is on WhatsApp: <b>{h.whatsapp}</b></p>}
             <p className="text-xs text-stone-500 text-center mt-1">Sample number for the prototype — not a real person.</p>
             <div className="grid grid-cols-2 gap-2 mt-3">
               <a href={`tel:${phone.replace(/\s/g, '')}`} className="bg-deep-800 text-white text-center font-semibold rounded-xl py-2.5 text-sm">📞 Call</a>
